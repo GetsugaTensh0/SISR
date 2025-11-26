@@ -10,6 +10,33 @@ figment = { version = "0.10", features = ["json", "toml", "yaml"] }
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.20" }
 chrono = "0.4.42"
+winit = "0.30.12"
+wgpu = "27.0.1"
+pollster = "0.4.0"
+wgpu-types = "27.0.1"
+egui = "0.33.2"
+egui-wgpu = "0.33.2"
+egui-winit = "0.33.2"
+egui_demo_lib = "0.33.2"
+sdl3 = { version = "0.16.2", features = ["hidapi", "build-from-source"] }
+ctrlc = { version = "3.5.1", features = ["termination"] }
+tray-icon = "0.21.2"
+image = "0.25.9"
+
+[target."cfg(windows)".dependencies]
+windows-sys = { version = "0.61.2", features = [
+    "Win32_Foundation",
+    "Win32_System_Console",
+    "Win32_System_Pipes",
+    "Win32_System_Threading",
+    "Win32_UI_WindowsAndMessaging",
+] }
+enable-ansi-support = "0.3.1"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+glib = "0.21"
+gtk = "0.18"
+
 
 [lib]
 name = "sisr"

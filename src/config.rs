@@ -19,11 +19,25 @@ pub struct Config {
     )]
     pub config_file_path: Option<PathBuf>,
 
+    #[cfg(windows)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[arg(
+        long = "console",
+        visible_alias = "cli",
+        value_name = "BOOL",
+        num_args = 0..=1,
+        default_missing_value = "true",
+        help = "Show console window (Windows only) (true/false) [default: false]"
+    )]
+    pub console: Option<bool>,
+
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[arg(
         short = 't',
         long = "tray",
         value_name = "BOOL",
+        num_args = 0..=1,
+        default_missing_value = "true",
         env = "SISR_TRAY",
         help = "Enable system tray icon (true/false) [default: true]"
     )]
@@ -55,6 +69,8 @@ pub struct WindowOpts {
         short = 'w',
         long = "window-create",
         value_name = "BOOL",
+        num_args = 0..=1,
+        default_missing_value = "true",
         env = "SISR_WINDOW_CREATE",
         help = "Create a transparent window (true/false) [default: false]"
     )]
@@ -63,6 +79,9 @@ pub struct WindowOpts {
     #[arg(
         short = 'f',
         long = "window-fullscreen",
+        value_name = "BOOL",
+        num_args = 0..=1,
+        default_missing_value = "true",
         env = "SISR_WINDOW_FULLSCREEN",
         help = "Create a fullscreen window [default: true]"
     )]
@@ -103,6 +122,8 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             config_file_path: None,
+            #[cfg(windows)]
+            console: Some(false),
             tray: Some(true),
             viiper_address: Some("localhost:3242".to_string()),
             window: WindowOpts {
@@ -110,7 +131,13 @@ impl Default for Config {
                 fullscreen: Some(true),
             },
             log: LogOpts {
-                level: tracing::Level::INFO.to_string().into(),
+                level: if cfg!(debug_assertions) {
+                    tracing::Level::DEBUG
+                } else {
+                    tracing::Level::INFO
+                }
+                .to_string()
+                .into(),
                 log_file: None,
             },
             debug: 0,
@@ -121,7 +148,7 @@ impl Default for Config {
 impl Config {
     pub fn parse() -> Self {
         let cli_args = <Self as Parser>::parse();
-        Figment::from(Serialized::defaults(Config::default()))
+        match Figment::from(Serialized::defaults(Config::default()))
             .merge({
                 match &cli_args.config_file_path {
                     None => Figment::new(),
@@ -135,6 +162,11 @@ impl Config {
             })
             .merge(Serialized::defaults(&cli_args))
             .extract()
-            .unwrap()
+        {
+            Ok(cfg) => cfg,
+            Err(e) => {
+                panic!("Failed to parse configuration: {}", e);
+            }
+        }
     }
 }

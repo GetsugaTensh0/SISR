@@ -5,19 +5,49 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Debug executable 'SISR'",
+            "name": "Subug SISR w/ window",
             "type": "lldb",
             "request": "launch",
             "cargo": {
                 "args": [
                     "run",
                     "--bin=SISR"
-                ]
+                ],
+                "env": {
+                    "RUSTFLAGS": "-C link-args=/SUBSYSTEM:CONSOLE",
+                    "CMAKE_GENERATOR": "Ninja"
+                },
             },
             "args": [
                 "-l=trace",
                 "--log-file=sisr.log",
-            ]
+                "-w=true"
+            ],
+            "env": {},
+            "internalConsoleOptions": "openOnFirstSessionStart",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Subug SISR cli",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "run",
+                    "--bin=SISR"
+                ],
+                "env": {
+                    "RUSTFLAGS": "-C link-args=/SUBSYSTEM:CONSOLE",
+                    "CMAKE_GENERATOR": "Ninja"
+                },
+            },
+            "args": [
+                "-l=trace",
+                "--log-file=sisr.log",
+            ],
+            "env": {
+                "RUSTFLAGS": "-C link-args=/SUBSYSTEM:CONSOLE"
+            }
         },
         {
             "name": "Debug unit tests in executable 'SISR'",
@@ -27,7 +57,11 @@
                 "args": [
                     "test",
                     "--bin=SISR"
-                ]
+                ],
+                "env": {
+                    "RUSTFLAGS": "-C link-args=/SUBSYSTEM:CONSOLE",
+                    "CMAKE_GENERATOR": "Ninja"
+                },
             }
         }
     ]

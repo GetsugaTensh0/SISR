@@ -5,7 +5,7 @@ use std::{
     sync::{Arc, Mutex, OnceLock, RwLock},
 };
 
-use tracing::{Level, Subscriber, debug, level_filters::LevelFilter};
+use tracing::{Level, Subscriber, level_filters::LevelFilter};
 use tracing_subscriber::{
     Layer, Registry, fmt,
     layer::{Context, SubscriberExt},
@@ -55,7 +55,6 @@ pub fn setup() {
 }
 
 pub fn set_level(level: Level) {
-    debug!("Setting stderr log level to {:?}", level);
     if let Some(handle) = STDERR_LEVEL_HANDLE.get() {
         handle
             .reload(LevelFilter::from_level(level))
@@ -64,7 +63,6 @@ pub fn set_level(level: Level) {
 }
 
 pub fn add_sink(sink: impl LogSink + 'static) {
-    debug!("Adding log sink");
     SINK_LIST
         .get()
         .unwrap()
@@ -74,8 +72,6 @@ pub fn add_sink(sink: impl LogSink + 'static) {
 }
 
 pub fn add_file(path: &Path, level: Level) {
-    debug!("Adding log file: {:?} at level {:?}", path, level);
-
     let file = File::options()
         .create(true)
         .write(true)
@@ -89,7 +85,6 @@ pub fn add_file(path: &Path, level: Level) {
     });
 }
 
-// TODO: learn about Send + Sync (unsure here)
 pub trait LogSink: Send + Sync {
     fn write(&self, formatted: &str);
     fn level_filter(&self) -> LevelFilter;
