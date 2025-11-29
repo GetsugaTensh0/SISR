@@ -8,7 +8,7 @@ use winit::event_loop::EventLoopProxy;
 use super::tray;
 use super::window::WindowRunner;
 use crate::app::gui::dispatcher::GuiDispatcher;
-use crate::app::input::{self, sdl};
+use crate::app::input::{self};
 use crate::app::window::RunnerEvent;
 use crate::config;
 

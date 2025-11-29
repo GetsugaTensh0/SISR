@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex, atomic::AtomicU64};
+use std::sync::{Arc, Mutex};
 
 use tracing::{debug, error, warn};
 use winit::event_loop::EventLoopProxy;

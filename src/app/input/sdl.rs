@@ -1,10 +1,15 @@
 use std::sync::{Arc, Mutex};
 
+use crate::app::{
+    App,
+    gui::dispatcher::GuiDispatcher,
+    input::{gamepad::EventHandler, sdl_hints},
+    window::RunnerEvent,
+};
 use sdl3::event::{Event, EventSender};
-use tracing::{Level, Span, debug, error, info, span, trace, warn};
+use sdl3::sys::events;
+use tracing::{Level, debug, error, span, trace, warn};
 use winit::event_loop::EventLoopProxy;
-
-use crate::app::{App, gui::dispatcher::GuiDispatcher, input::sdl_hints, window::RunnerEvent};
 
 #[derive(Default)]
 pub struct InputLoop {
@@ -16,14 +21,7 @@ pub struct InputLoop {
 
 #[derive(Default)]
 struct SomeTodoDummyDebugState {
-    some_names: Vec<String>,
     counter: u64,
-}
-
-struct EventHandleResult {
-    continue_loop: bool,
-    continue_processing: bool,
-    request_redraw: bool,
 }
 
 impl InputLoop {
@@ -57,20 +55,12 @@ impl InputLoop {
             }
         }
 
-        let sdl_joystick = match sdl.joystick() {
-            Ok(sdl_joystick) => Some(sdl_joystick),
-            Err(e) => {
-                error!("Failed to initialize SDL joystick subsystem: {}", e);
-                None
-            }
-        };
-        let sdl_gamepad = match sdl.gamepad() {
-            Ok(sdl_gamepad) => Some(sdl_gamepad),
-            Err(e) => {
-                error!("Failed to initialize SDL gamepad subsystem: {}", e);
-                None
-            }
-        };
+        let _ = sdl
+            .joystick()
+            .inspect_err(|e| error!("Failed to initialize SDL joystick subsystem: {e}"));
+        let _ = sdl
+            .gamepad()
+            .inspect_err(|e| error!("Failed to initialize SDL gamepad subsystem: {e}"));
 
         match sdl.event() {
             Ok(event_subsystem) => match self.sdl_waker.lock() {
@@ -121,25 +111,56 @@ impl InputLoop {
     fn run_loop(&mut self, event_pump: &mut sdl3::EventPump) -> Result<(), ()> {
         let span = span!(Level::INFO, "sdl_loop");
 
+        let mut pad_event_handler =
+            EventHandler::new(self.winit_waker.clone(), self.gui_dispatcher.clone());
         trace!("SDL loop starting");
         loop {
+            let mut redraw = false;
             let meh = event_pump.wait_event();
+
             for event in std::iter::once(meh).chain(event_pump.poll_iter()) {
+                if let Ok(mut guard) = self.somedummy.lock() {
+                    let state = &mut *guard;
+                    state.counter += 1;
+                }
                 match event {
                     Event::Quit { .. } => {
                         tracing::event!(parent: &span, Level::INFO, event = ?event, "Quit event received");
                         return Ok(());
                     }
+                    Event::JoyDeviceAdded { .. } | Event::ControllerDeviceAdded { .. } => {
+                        pad_event_handler.on_pad_added(&event);
+                        redraw = true;
+                    }
+                    Event::JoyDeviceRemoved { .. } | Event::ControllerDeviceRemoved { .. } => {
+                        pad_event_handler.on_pad_removed(&event);
+                        redraw = true;
+                    }
+                    Event::Unknown { type_, .. } => match events::SDL_EventType(type_) {
+                        events::SDL_EVENT_GAMEPAD_STEAM_HANDLE_UPDATED => {
+                            pad_event_handler.on_steam_handle_updated(&event);
+                        }
+                        events::SDL_EVENT_GAMEPAD_UPDATE_COMPLETE
+                        | events::SDL_EVENT_JOYSTICK_UPDATE_COMPLETE => {
+                            pad_event_handler.on_pad_event(&event);
+                        }
+                        _ => {
+                            tracing::event!(parent: &span, Level::TRACE, event = ?event, "SDL event");
+                        }
+                    },
                     _ => {
-                        tracing::event!(parent: &span, Level::TRACE, event = ?event, "SDL event");
-                        if let Ok(mut guard) = self.somedummy.lock() {
-                            let state = &mut *guard;
-                            state.counter += 1;
+                        if event.is_joy() || event.is_controller() {
+                            pad_event_handler.on_pad_event(&event);
+                        } else {
+                            tracing::event!(parent: &span, Level::TRACE, event = ?event, "SDL event");
                         }
                     }
                 }
             }
-            self.request_redraw();
+
+            if redraw {
+                self.request_redraw();
+            }
         }
     }
 

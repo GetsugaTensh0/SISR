@@ -6,7 +6,7 @@ use egui::Context;
 use egui_wgpu::Renderer as EguiRenderer;
 use egui_wgpu::ScreenDescriptor;
 use egui_winit::State as EguiWinitState;
-use tracing::{debug, dispatcher, error, info, trace};
+use tracing::{error, trace};
 use winit::application::ApplicationHandler;
 use winit::event::WindowEvent;
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
@@ -16,7 +16,6 @@ use winit::window::{Window, WindowAttributes, WindowId};
 use winit::platform::windows::WindowAttributesExtWindows;
 
 use crate::app::gui::dispatcher::GuiDispatcher;
-use crate::app::window;
 use crate::gfx::Gfx;
 
 pub enum RunnerEvent {
@@ -110,10 +109,10 @@ impl WindowRunner {
         let raw_input = egui_winit.take_egui_input(window.as_ref());
 
         let full_output = self.egui_ctx.run(raw_input, |ctx| {
-            if let Ok(guard) = self.gui_dispatcher.lock() {
-                if let Some(dispatcher) = &*guard {
-                    Self::build_ui(dispatcher, ctx);
-                }
+            if let Ok(guard) = self.gui_dispatcher.lock()
+                && let Some(dispatcher) = &*guard
+            {
+                Self::build_ui(dispatcher, ctx);
             }
         });
         egui_winit.handle_platform_output(window.as_ref(), full_output.platform_output);
