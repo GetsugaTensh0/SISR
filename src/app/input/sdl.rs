@@ -124,14 +124,22 @@ impl InputLoop {
             .inspect_err(|e| error!("Failed to initialize SDL gamepad subsystem: {e}"));
 
         match sdl.event() {
-            Ok(event_subsystem) => match self.sdl_waker.lock() {
-                Ok(mut guard) => {
-                    *guard = Some(event_subsystem.event_sender());
+            Ok(event_subsystem) => {
+                if let Err(e) =
+                    event_subsystem.register_custom_event::<super::handler::ViiperDisconnectEvent>()
+                {
+                    error!("Failed to register VIIPER disconnect event: {}", e);
                 }
-                Err(e) => {
-                    error!("Failed to set SDL event sender: {}", e);
+
+                match self.sdl_waker.lock() {
+                    Ok(mut guard) => {
+                        *guard = Some(event_subsystem.event_sender());
+                    }
+                    Err(e) => {
+                        error!("Failed to set SDL event sender: {}", e);
+                    }
                 }
-            },
+            }
             Err(e) => {
                 error!("Failed to get SDL event subsystem: {}", e);
             }
@@ -177,6 +185,7 @@ impl InputLoop {
         let span = span!(Level::INFO, "sdl_loop");
 
         let mut pad_event_handler = EventHandler::new(
+            self.sdl_waker.clone(),
             self.winit_waker.clone(),
             self.gui_dispatcher.clone(),
             viiper_address,
@@ -217,6 +226,15 @@ impl InputLoop {
                         }
                     },
                     _ => {
+                        if event.is_user_event()
+                            && let Some(disconnect_event) =
+                                event.as_user_event_type::<super::handler::ViiperDisconnectEvent>()
+                        {
+                            pad_event_handler.on_viiper_disconnect(disconnect_event.device_id);
+                            redraw = true;
+                            continue;
+                        }
+
                         if event.is_joy() || event.is_controller() {
                             pad_event_handler.on_pad_event(&event);
                         } else {

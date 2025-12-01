@@ -3,6 +3,7 @@ mod gui;
 mod viiper_bridge;
 
 use viiper_bridge::ViiperBridge;
+pub use viiper_bridge::ViiperDisconnectEvent;
 
 use std::{
     collections::HashMap,
@@ -10,6 +11,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use sdl3::event::EventSender;
 use tracing::{debug, error};
 use winit::event_loop::EventLoopProxy;
 
@@ -37,6 +39,7 @@ pub(super) struct State {
 
 impl EventHandler {
     pub fn new(
+        sdl_waker: Arc<Mutex<Option<EventSender>>>,
         winit_waker: Arc<Mutex<Option<EventLoopProxy<RunnerEvent>>>>,
         gui_dispatcher: Arc<Mutex<Option<GuiDispatcher>>>,
         viiper_address: Option<SocketAddr>,
@@ -56,7 +59,7 @@ impl EventHandler {
             sdl_gamepad: sdl.gamepad().unwrap(),
             sdl_devices: HashMap::new(),
             state: state.clone(),
-            viiper: ViiperBridge::new(viiper_address),
+            viiper: ViiperBridge::new(viiper_address, sdl_waker),
         };
         if let Ok(dispatcher_guard) = res.gui_dispatcher.lock()
             && let Some(dispatcher) = &*dispatcher_guard

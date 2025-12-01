@@ -118,7 +118,7 @@ impl EventHandler {
                         );
                     }
                     if device.sdl_device_count == 0 {
-                        self.viiper.disconnect_device(*which);
+                        self.viiper.remove_device(*which);
                         guard.devices.retain(|d| d.id != *which);
                         info!(
                             "Removed {} device with ID {}",
@@ -224,6 +224,23 @@ impl EventHandler {
                 // instead of duplicating code for every shit"
                 trace!("GamepadHandler: Pad event: {:?}", event);
             }
+        }
+    }
+
+    pub fn on_viiper_disconnect(&mut self, device_id: u32) {
+        // Needs to be done here to avoid deadlock
+        self.viiper.remove_device(device_id);
+
+        let Ok(mut guard) = self.state.lock() else {
+            error!("Failed to lock state for VIIPER disconnect handling");
+            return;
+        };
+        if let Some(device) = guard.devices.iter_mut().find(|d| d.id == device_id) {
+            device.viiper_device = None;
+            debug!(
+                "Cleared VIIPER device for {} due to server disconnect",
+                device_id
+            );
         }
     }
 }

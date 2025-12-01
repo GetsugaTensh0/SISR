@@ -1,20 +1,31 @@
 use std::collections::HashMap;
 use std::net::SocketAddr;
+use std::sync::{Arc, Mutex};
 
 use anyhow::{Result, anyhow};
-use tracing::{info, warn};
+use sdl3::event::EventSender;
+use tracing::{info, trace, warn};
+use viiper_client::devices::xbox360;
 use viiper_client::{DeviceStream, ViiperClient};
 
 use crate::app::input::device::Device;
 
+/// Custom SDL event pushed when VIIPER server disconnects a device
+pub struct ViiperDisconnectEvent {
+    pub device_id: u32,
+}
+
 pub(super) struct ViiperBridge {
     client: Option<ViiperClient>,
-    // TODO: handle device_disconnect from SERVER
-    streams: HashMap<u32, DeviceStream>,
+    streams: Arc<Mutex<HashMap<u32, DeviceStream>>>,
+    sdl_waker: Arc<Mutex<Option<EventSender>>>,
 }
 
 impl ViiperBridge {
-    pub fn new(viiper_address: Option<SocketAddr>) -> Self {
+    pub fn new(
+        viiper_address: Option<SocketAddr>,
+        sdl_waker: Arc<Mutex<Option<EventSender>>>,
+    ) -> Self {
         Self {
             client: match viiper_address {
                 Some(addr) => Some(ViiperClient::new(addr)),
@@ -23,15 +34,13 @@ impl ViiperBridge {
                     None
                 }
             },
-            streams: HashMap::new(),
+            streams: Arc::new(Mutex::new(HashMap::new())),
+            sdl_waker,
         }
     }
 
     pub fn create_device(&self, device: &mut Device, bus_id: &mut Option<u32>) -> Result<()> {
-        let bus_id = match bus_id {
-            Some(id) => *id,
-            None => self.create_bus(bus_id)?,
-        };
+        let current_bus_id = self.ensure_bus(bus_id)?;
 
         let client = self
             .client
@@ -40,7 +49,7 @@ impl ViiperBridge {
 
         let response = client
             .bus_device_add(
-                bus_id,
+                current_bus_id,
                 &viiper_client::types::DeviceCreateRequest {
                     r#type: Some(device.viiper_type.clone()),
                     id_vendor: None,
@@ -62,27 +71,61 @@ impl ViiperBridge {
 
         let client = self
             .client
-            .as_mut()
+            .as_ref()
             .ok_or_else(|| anyhow!("No VIIPER client available"))?;
 
-        let dev_stream = client
+        let mut dev_stream = client
             .connect_device(viiper_dev.bus_id, &viiper_dev.dev_id)
             .map_err(|e| anyhow!("Failed to connect VIIPER device: {}", e))?;
 
-        self.streams.insert(device.id, dev_stream);
+        let device_id = device.id;
+        let sdl_waker = self.sdl_waker.clone();
+
+        dev_stream
+            .on_disconnect(move || {
+                info!("VIIPER server disconnected device {}", device_id);
+
+                if let Ok(guard) = sdl_waker.lock()
+                    && let Some(sender) = &*guard
+                {
+                    let _ = sender.push_custom_event(ViiperDisconnectEvent { device_id });
+                }
+            })
+            .map_err(|e| anyhow!("Failed to register disconnect callback: {}", e))?;
+
+        dev_stream
+            .on_output(|reader| {
+                let mut buf = [0u8; xbox360::OUTPUT_SIZE];
+                reader.read_exact(&mut buf)?;
+                // TODO: Forward rumble to SDL haptic
+                trace!("Rumble data: {:?}", buf);
+                Ok(())
+            })
+            .map_err(|e| anyhow!("Failed to register output callback: {}", e))?;
+
+        if let Ok(mut streams_guard) = self.streams.lock() {
+            streams_guard.insert(device.id, dev_stream);
+        }
         info!("Connected VIIPER device {:?}", device.viiper_device);
         Ok(())
     }
 
-    pub fn create_bus(&self, bus_id: &mut Option<u32>) -> Result<u32> {
-        if bus_id.is_some() {
-            warn!("VIIPER bus already created; Recreating");
-        }
-
+    fn ensure_bus(&self, bus_id: &mut Option<u32>) -> Result<u32> {
         let client = self
             .client
             .as_ref()
             .ok_or_else(|| anyhow!("No VIIPER client available"))?;
+
+        if let Some(id) = *bus_id {
+            let buses = client
+                .bus_list()
+                .map_err(|e| anyhow!("Failed to list VIIPER buses: {}", e))?;
+
+            if buses.buses.contains(&id) {
+                return Ok(id);
+            }
+            warn!("Bus {} no longer exists, recreating...", id);
+        }
 
         let response = client
             .bus_create(None)
@@ -93,11 +136,13 @@ impl ViiperBridge {
         Ok(response.bus_id)
     }
 
-    pub fn disconnect_device(&mut self, which: u32) {
-        if self.streams.remove(&which).is_some() {
-            info!("Disconnected VIIPER device with ID {}", which);
-        } else {
-            warn!("No VIIPER device found with ID {}", which);
+    pub fn remove_device(&mut self, which: u32) {
+        if let Ok(mut streams_guard) = self.streams.lock() {
+            if streams_guard.remove(&which).is_some() {
+                info!("Disconnected VIIPER device with ID {}", which);
+            } else {
+                warn!("No VIIPER device to disconnect found with ID {}", which);
+            }
         }
     }
 }
