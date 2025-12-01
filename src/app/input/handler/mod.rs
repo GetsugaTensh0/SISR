@@ -1,6 +1,8 @@
 mod events;
 mod gui;
-mod viiper;
+mod viiper_bridge;
+
+use viiper_bridge::ViiperBridge;
 
 use std::{
     collections::HashMap,
@@ -8,8 +10,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use tracing::{debug, error, warn};
-use viiper_client::{DeviceStream, ViiperClient};
+use tracing::{debug, error};
 use winit::event_loop::EventLoopProxy;
 
 use crate::app::{
@@ -24,8 +25,7 @@ pub struct EventHandler {
     sdl_joystick: sdl3::JoystickSubsystem,
     sdl_gamepad: sdl3::GamepadSubsystem,
     sdl_devices: HashMap<u32, Vec<SDLDevice>>,
-    viiper_streams: HashMap<u32, DeviceStream>,
-    viiper_client: Option<ViiperClient>,
+    viiper: ViiperBridge,
     state: Arc<Mutex<State>>,
 }
 
@@ -56,14 +56,7 @@ impl EventHandler {
             sdl_gamepad: sdl.gamepad().unwrap(),
             sdl_devices: HashMap::new(),
             state: state.clone(),
-            viiper_streams: HashMap::new(),
-            viiper_client: match viiper_address {
-                Some(addr) => Some(ViiperClient::new(addr)),
-                None => {
-                    warn!("No VIIPER address provided; VIIPER integration disabled");
-                    None
-                }
-            },
+            viiper: ViiperBridge::new(viiper_address),
         };
         if let Ok(dispatcher_guard) = res.gui_dispatcher.lock()
             && let Some(dispatcher) = &*dispatcher_guard

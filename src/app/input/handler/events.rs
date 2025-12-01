@@ -10,125 +10,123 @@ use super::EventHandler;
 
 impl EventHandler {
     pub fn on_pad_added(&mut self, event: &Event) {
-        match event {
-            Event::JoyDeviceAdded { which, .. } | Event::ControllerDeviceAdded { which, .. } => {
-                trace!(
-                    "{} added with ID {}",
-                    if matches!(event, Event::JoyDeviceAdded { .. }) {
-                        "Joystick"
-                    } else {
-                        "Gamepad"
-                    },
-                    which
-                );
-
-                let sdl_dev = match event {
-                    Event::JoyDeviceAdded { which, .. } => {
-                        self.sdl_joystick.open(*which).ok().map(SDLDevice::Joystick)
-                    }
-                    Event::ControllerDeviceAdded { which, .. } => {
-                        self.sdl_gamepad.open(*which).ok().map(SDLDevice::Gamepad)
-                    }
-                    _ => unreachable!(),
-                };
-                let sdl_device = match sdl_dev {
-                    Some(device) => device,
-                    None => {
-                        warn!("Failed to open SDL device with ID {}", which);
-                        return;
-                    }
-                };
-
-                let steam_handle = match &sdl_device {
-                    SDLDevice::Joystick(_) => 0,
-                    SDLDevice::Gamepad(p) => get_gamepad_steam_handle(p),
-                };
-
-                self.sdl_devices.entry(*which).or_default().push(sdl_device);
-
-                if let Ok(mut guard) = self
-                    .state
-                    .lock()
-                    .map_err(|e| error!("Failed to lock state for adding device: {}", e))
-                {
-                    match guard.devices.iter_mut().find(|d| d.id == *which) {
-                        Some(existing_device) => {
-                            existing_device.sdl_device_count += 1;
-                            debug!(
-                                "Added extra SDL {} device count for {}; Number of SDL devices {}",
-                                if matches!(event, Event::JoyDeviceAdded { .. }) {
-                                    "Joystick"
-                                } else {
-                                    "Gamepad"
-                                },
-                                which,
-                                existing_device.sdl_device_count
-                            );
-
-                            if existing_device.steam_handle == 0 && steam_handle != 0 {
-                                existing_device.steam_handle = steam_handle;
-                                info!(
-                                    "Updated steam handle for device ID {} to {}",
-                                    which, steam_handle
-                                );
-                            }
-                        }
-                        _ => {
-                            let mut device = Device {
-                                id: *which,
-                                steam_handle,
-                                state: DeviceState::default(),
-                                sdl_device_count: 1,
-                                ..Default::default()
-                            };
-
-                            if steam_handle != 0 {
-                                info!(
-                                    "Connecting device {} upon connect with steam handle {}",
-                                    *which, steam_handle
-                                );
-                                match self.create_viiper_device_with_guard(&mut device, &mut guard)
-                                {
-                                    Ok(_) => {
-                                        info!(
-                                            "Created VIIPER device for pad {} upon connect",
-                                            which
-                                        );
-                                        if let Err(e) = self.connect_viiper_device(&mut device) {
-                                            error!(
-                                                "Failed to connect VIIPER device for pad {}: {}",
-                                                which, e
-                                            )
-                                        }
-                                    }
-                                    Err(e) => {
-                                        error!(
-                                            "Failed to create VIIPER device for pad {}: {}",
-                                            which, e
-                                        )
-                                    }
-                                }
-                            }
-
-                            guard.devices.push(device);
-                            info!(
-                                "Added {} device with ID {}",
-                                if matches!(event, Event::JoyDeviceAdded { .. }) {
-                                    "Joystick"
-                                } else {
-                                    "Gamepad"
-                                },
-                                which
-                            );
-                        }
-                    }
-                }
-            }
+        let (which, is_joystick) = match event {
+            Event::JoyDeviceAdded { which, .. } => (which, true),
+            Event::ControllerDeviceAdded { which, .. } => (which, false),
             _ => {
                 warn!("Unexpected event for pad addition: {:?}", event);
+                return;
+            }
+        };
+
+        trace!(
+            "{} added with ID {}",
+            if is_joystick { "Joystick" } else { "Gamepad" },
+            which
+        );
+
+        let sdl_dev = if is_joystick {
+            self.sdl_joystick.open(*which).ok().map(SDLDevice::Joystick)
+        } else {
+            self.sdl_gamepad.open(*which).ok().map(SDLDevice::Gamepad)
+        };
+        let Some(sdl_device) = sdl_dev else {
+            warn!("Failed to open SDL device with ID {}", which);
+            return;
+        };
+
+        let steam_handle = match &sdl_device {
+            SDLDevice::Joystick(_) => 0,
+            SDLDevice::Gamepad(p) => get_gamepad_steam_handle(p),
+        };
+
+        self.sdl_devices.entry(*which).or_default().push(sdl_device);
+
+        let Ok(mut guard) = self.state.lock() else {
+            error!("Failed to lock state for adding device");
+            return;
+        };
+
+        match guard.devices.iter_mut().find(|d| d.id == *which) {
+            Some(existing_device) => {
+                Self::handle_existing_device(existing_device, steam_handle, *which, is_joystick);
+            }
+            None => {
+                Self::handle_new_device(
+                    &mut self.viiper,
+                    &mut guard,
+                    *which,
+                    steam_handle,
+                    is_joystick,
+                );
             }
         }
     }
+
+    fn handle_existing_device(
+        device: &mut Device,
+        steam_handle: u64,
+        which: u32,
+        is_joystick: bool,
+    ) {
+        device.sdl_device_count += 1;
+        debug!(
+            "Added extra SDL {} device count for {}; Number of SDL devices {}",
+            if is_joystick { "Joystick" } else { "Gamepad" },
+            which,
+            device.sdl_device_count
+        );
+
+        if device.steam_handle == 0 && steam_handle != 0 {
+            device.steam_handle = steam_handle;
+            info!(
+                "Updated steam handle for device ID {} to {}",
+                which, steam_handle
+            );
+        }
+    }
+
+    fn handle_new_device(
+        viiper: &mut super::viiper_bridge::ViiperBridge,
+        guard: &mut std::sync::MutexGuard<'_, super::State>,
+        which: u32,
+        steam_handle: u64,
+        is_joystick: bool,
+    ) {
+        let mut device = Device {
+            id: which,
+            steam_handle,
+            state: DeviceState::default(),
+            sdl_device_count: 1,
+            ..Default::default()
+        };
+
+        if steam_handle != 0 {
+            info!(
+                "Connecting device {} upon connect with steam handle {}",
+                which, steam_handle
+            );
+            match viiper.create_device(&mut device, guard) {
+                Ok(_) => {
+                    info!("Created VIIPER device for pad {} upon connect", which);
+                    if let Err(e) = viiper.connect_device(&mut device) {
+                        error!("Failed to connect VIIPER device for pad {}: {}", which, e)
+                    }
+                }
+                Err(e) => {
+                    error!("Failed to create VIIPER device for pad {}: {}", which, e)
+                }
+            }
+        }
+
+        guard.devices.push(device);
+        info!(
+            "Added {} device with ID {}",
+            if is_joystick { "Joystick" } else { "Gamepad" },
+            which
+        );
+    }
+
     pub fn on_pad_removed(&mut self, event: &Event) {
         match event {
             Event::JoyDeviceRemoved { which, .. }
@@ -170,6 +168,7 @@ impl EventHandler {
                         );
                     }
                     if device.sdl_device_count == 0 {
+                        self.viiper.disconnect_device(*which);
                         guard.devices.retain(|d| d.id != *which);
                         info!(
                             "Removed {} device with ID {}",
