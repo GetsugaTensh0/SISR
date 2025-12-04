@@ -46,11 +46,12 @@ pub fn get_gamepad_steam_handle(pad: &Gamepad) -> u64 {
     }
 }
 
+#[macro_export]
 macro_rules! event_which {
     ($event:expr) => {
         match $event {
             Event::JoyAxisMotion { which, .. }
-            | Event::JoyBallMotion { which, .. }
+            // | Event::JoyBallMotion { which, .. }
             | Event::JoyHatMotion { which, .. }
             | Event::JoyButtonDown { which, .. }
             | Event::JoyButtonUp { which, .. }

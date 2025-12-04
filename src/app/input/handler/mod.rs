@@ -35,7 +35,6 @@ pub struct EventHandler {
 pub(super) struct State {
     devices: Vec<Device>,
     viiper_address: Option<SocketAddr>,
-    viiper_bus: Option<u32>,
 }
 
 impl EventHandler {
@@ -52,7 +51,6 @@ impl EventHandler {
         let state = Arc::new(Mutex::new(State {
             devices: Vec::new(),
             viiper_address,
-            viiper_bus: None,
         }));
         let clone_handle = async_handle.clone();
         let res = Self {

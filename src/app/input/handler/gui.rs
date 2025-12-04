@@ -27,6 +27,7 @@ impl EventHandler {
                         ui.label("VIIPER Device:");
                         match &device.viiper_device {
                             Some(viiper_dev) => {
+                                ui.label(format!("  Connected: {}", device.viiper_connected));
                                 ui.label(format!("  Bus ID: {}", viiper_dev.bus_id));
                                 ui.label(format!("  Device ID: {}", viiper_dev.dev_id));
                                 ui.label(format!("  Type: {}", viiper_dev.r#type));
@@ -49,12 +50,22 @@ impl EventHandler {
                     .map(|addr| addr.to_string())
                     .unwrap_or("None".to_string())
             ));
+
+            let busses = state
+                .devices
+                .iter()
+                .filter_map(|d| d.viiper_device.as_ref().map(|v| v.bus_id))
+                .collect::<Vec<u32>>()
+                .iter()
+                .map(|id| id.to_string())
+                .collect::<Vec<String>>();
             ui.label(format!(
-                "Bus ID: {}",
-                state
-                    .viiper_bus
-                    .map(|id| id.to_string())
-                    .unwrap_or("Not created".to_string())
+                "Bus IDs: {}",
+                if busses.is_empty() {
+                    "None".to_string()
+                } else {
+                    busses.join(", ")
+                }
             ));
         });
     }

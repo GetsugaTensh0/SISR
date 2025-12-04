@@ -1,10 +1,13 @@
 use sdl3::event::Event;
 use tracing::{debug, error, info, trace, warn};
 
-use crate::app::input::{
-    device::{Device, DeviceState, SDLDevice},
-    handler::ViiperEvent,
-    sdl::get_gamepad_steam_handle,
+use crate::{
+    app::input::{
+        device::{Device, DeviceState, SDLDevice},
+        handler::ViiperEvent,
+        sdl::get_gamepad_steam_handle,
+    },
+    event_which,
 };
 
 use super::EventHandler;
@@ -48,7 +51,6 @@ impl EventHandler {
             return;
         };
 
-        let mut bus_id = guard.viiper_bus;
         match guard.devices.iter_mut().find(|d| d.id == *which) {
             Some(existing_device) => {
                 existing_device.sdl_device_count += 1;
@@ -60,7 +62,6 @@ impl EventHandler {
                 );
                 handle_existing_device_connect(
                     &mut self.viiper,
-                    &mut bus_id,
                     existing_device,
                     steam_handle,
                     *which,
@@ -76,7 +77,6 @@ impl EventHandler {
                 );
             }
         }
-        guard.viiper_bus = bus_id;
     }
     pub fn on_pad_removed(&mut self, event: &Event) {
         match event {
@@ -149,7 +149,6 @@ impl EventHandler {
             return;
         };
         // should only be one bus for all devices, this is fine for now!
-        let mut bus_id = guard.viiper_bus;
         self.sdl_devices
             .values()
             .flat_map(|d| {
@@ -177,30 +176,10 @@ impl EventHandler {
                             "Connecting device {} upon steam handle update with steam handle {}",
                             instance_id, steam_handle
                         );
-                        match self.viiper.create_device(device, &mut bus_id) {
-                            Ok(_) => {
-                                info!(
-                                    "Created VIIPER device for pad {} upon steam handle update",
-                                    instance_id
-                                );
-                                if let Err(e) = self.viiper.connect_device(device) {
-                                    error!(
-                                        "Failed to connect VIIPER device for pad {}: {}",
-                                        instance_id, e
-                                    )
-                                }
-                            }
-                            Err(e) => {
-                                error!(
-                                    "Failed to create VIIPER device for pad {}: {}",
-                                    instance_id, e
-                                )
-                            }
-                        }
+                        self.viiper.create_device(device);
                     }
                 }
             });
-        guard.viiper_bus = bus_id;
         self.request_redraw();
     }
 
@@ -211,6 +190,7 @@ impl EventHandler {
                 // GAMEPAD_STATE_UPDATE_COMPLETE or JOYPAD_STATE_UPDATE_COMPLETE
                 // Silently Ignore for now
                 // Would need "supertrace" log level lol
+                trace!("Unknown gamepad event: {:?}", event);
             }
             _ => {
                 if event.is_joy() {
@@ -224,13 +204,42 @@ impl EventHandler {
                 // handle all other events and just "update gamepad"
                 // instead of duplicating code for every shit"
                 trace!("GamepadHandler: Pad event: {:?}", event);
+                let Some(which) = event_which!(event) else {
+                    warn!("Failed to get 'which' from gamepad event: {:?}", event);
+                    return;
+                };
+                if let Ok(mut guard) = self
+                    .state
+                    .lock()
+                    .map_err(|e| error!("Failed to lock state for pad event: {}", e))
+                    && let Some(device) = guard.devices.iter_mut().find(|d| d.id == which)
+                {
+                    let Some(gamepad) = self.sdl_devices[&which]
+                        .iter()
+                        .find(|d| matches!(d, SDLDevice::Gamepad(_)))
+                        .and_then(|d| match d {
+                            SDLDevice::Gamepad(p) => Some(p),
+                            _ => None,
+                        })
+                    else {
+                        warn!("No SDL gamepad found for device ID {}", which);
+                        return;
+                    };
+                    device.state.update_from_sdl_gamepad(gamepad);
+
+                    self.viiper.update_device_state(device);
+
+                    self.request_redraw();
+                } else {
+                    warn!("No device found for ID {} in pad event", which);
+                }
             }
         }
     }
 
     pub fn on_viiper_event(&mut self, event: ViiperEvent) {
         match event {
-            ViiperEvent::Disconnect { device_id } => {
+            ViiperEvent::ServerDisconnected { device_id } => {
                 // Needs to be done here to avoid deadlock
                 self.viiper.remove_device(device_id);
 
@@ -246,17 +255,77 @@ impl EventHandler {
                     );
                 }
             }
-            ViiperEvent::Connect {
-                device_id: _,
-                todo: _,
-            } => {}
+            ViiperEvent::DeviceCreated {
+                device_id,
+                viiper_device,
+            } => {
+                let Ok(mut guard) = self.state.lock() else {
+                    error!("Failed to lock state for VIIPER device created handling");
+                    return;
+                };
+                let Some(device) = guard.devices.iter_mut().find(|d| d.id == device_id) else {
+                    warn!("Received created event for unknown device ID {}", device_id);
+                    return;
+                };
+                device.viiper_device = Some(viiper_device);
+                self.viiper.connect_device(device);
+                self.request_redraw();
+            }
+            ViiperEvent::DeviceConnected { device_id } => {
+                let Ok(mut guard) = self.state.lock() else {
+                    error!("Failed to lock state for VIIPER device connected handling");
+                    return;
+                };
+                let Some(device) = guard.devices.iter_mut().find(|d| d.id == device_id) else {
+                    warn!(
+                        "Received connected event for unknown device ID {}",
+                        device_id
+                    );
+                    return;
+                };
+                device.viiper_connected = true;
+                self.request_redraw();
+            }
+            ViiperEvent::DeviceRumble { device_id, l, r } => {
+                warn!("Received rumble for device {}, l={}, r={}", device_id, l, r);
+
+                let Some(devices) = self.sdl_devices.get_mut(&device_id) else {
+                    warn!(
+                        "No SDL devices found for device ID {} in output event",
+                        device_id
+                    );
+                    return;
+                };
+
+                let Some(gamepad) = devices.iter_mut().find_map(|d| match d {
+                    SDLDevice::Gamepad(p) => Some(p),
+                    _ => None,
+                }) else {
+                    warn!(
+                        "No SDL gamepad found for device ID {} in output event",
+                        device_id
+                    );
+                    return;
+                };
+                if let Err(e) = gamepad.set_rumble(l as u16 * 257, r as u16 * 257, 10000) {
+                    warn!("Failed to set rumble for device ID {}: {}", device_id, e);
+                }
+                self.request_redraw();
+            }
+            ViiperEvent::ErrorCreateDevice { device_id } => {
+                error!("Failed to create VIIPER device {}", device_id);
+                self.request_redraw();
+            }
+            ViiperEvent::ErrorConnectDevice { device_id } => {
+                error!("Failed to connect VIIPER device {}", device_id);
+                self.request_redraw();
+            }
         }
     }
 }
 
 fn handle_existing_device_connect(
     viiper: &mut super::viiper_bridge::ViiperBridge,
-    bus_id: &mut Option<u32>,
     device: &mut Device,
     steam_handle: u64,
     which: u32,
@@ -280,17 +349,7 @@ fn handle_existing_device_connect(
             "Connecting device {} upon connect with steam handle {}",
             which, steam_handle
         );
-        match viiper.create_device(device, bus_id) {
-            Ok(_) => {
-                info!("Created VIIPER device for pad {} upon connect", which);
-                if let Err(e) = viiper.connect_device(device) {
-                    error!("Failed to connect VIIPER device for pad {}: {}", which, e);
-                }
-            }
-            Err(e) => {
-                error!("Failed to create VIIPER device for pad {}: {}", which, e);
-            }
-        }
+        viiper.create_device(device);
     }
 }
 
@@ -301,36 +360,28 @@ fn handle_new_device(
     steam_handle: u64,
     is_joystick: bool,
 ) {
-    let mut device = Device {
+    let device = Device {
         id: which,
         steam_handle,
         state: DeviceState::default(),
         sdl_device_count: 1,
         ..Default::default()
     };
+    if is_joystick {
+        guard.devices.push(device);
+        info!(
+            "Added Joystick device with ID {}; Steam Handle: {}",
+            which, steam_handle
+        );
+        return;
+    }
 
     if steam_handle != 0 {
         info!(
             "Connecting device {} upon connect with steam handle {}",
             which, steam_handle
         );
-        match viiper.create_device(&mut device, &mut guard.viiper_bus) {
-            Ok(_) => {
-                info!("Created VIIPER device for pad {} upon connect", which);
-                if let Err(e) = viiper.connect_device(&mut device) {
-                    error!("Failed to connect VIIPER device for pad {}: {}", which, e)
-                }
-            }
-            Err(e) => {
-                error!("Failed to create VIIPER device for pad {}: {}", which, e)
-            }
-        }
+        viiper.create_device(&device);
     }
-
     guard.devices.push(device);
-    info!(
-        "Added {} device with ID {}",
-        if is_joystick { "Joystick" } else { "Gamepad" },
-        which
-    );
 }
