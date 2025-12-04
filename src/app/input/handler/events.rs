@@ -8,6 +8,7 @@ use crate::{
         device::{Device, DeviceState, SDLDevice},
         handler::ViiperEvent,
         sdl::get_gamepad_steam_handle,
+        sdl_device_info::SdlDeviceInfo,
     },
     event_which,
 };
@@ -46,6 +47,7 @@ impl EventHandler {
             SDLDevice::Gamepad(p) => get_gamepad_steam_handle(p),
         };
 
+        let sdl_device_info = SdlDeviceInfo::from(&sdl_device);
         self.sdl_devices.entry(*which).or_default().push(sdl_device);
 
         let Ok(mut guard) = self.state.lock() else {
@@ -55,12 +57,12 @@ impl EventHandler {
 
         match guard.devices.iter_mut().find(|d| d.id == *which) {
             Some(existing_device) => {
-                existing_device.sdl_device_count += 1;
+                existing_device.sdl_device_infos.push(sdl_device_info);
                 debug!(
                     "Added extra SDL {} device count for {}; Number of SDL devices {}",
                     if is_joystick { "Joystick" } else { "Gamepad" },
                     which,
-                    existing_device.sdl_device_count
+                    existing_device.sdl_device_infos.len()
                 );
                 handle_existing_device_connect(
                     &mut self.viiper,
@@ -76,6 +78,7 @@ impl EventHandler {
                     *which,
                     steam_handle,
                     is_joystick,
+                    sdl_device_info,
                 );
             }
         }
@@ -107,20 +110,30 @@ impl EventHandler {
                     .map_err(|e| error!("Failed to lock state for removing device: {}", e))
                     && let Some(device) = guard.devices.iter_mut().find(|d| d.id == *which)
                 {
-                    if device.sdl_device_count > 0 {
-                        device.sdl_device_count -= 1;
+                    let is_joystick = matches!(event, Event::JoyDeviceRemoved { .. });
+                    let before_len = device.sdl_device_infos.len();
+
+                    if let Some(idx) = device
+                        .sdl_device_infos
+                        .iter()
+                        .position(|info| info.is_gamepad != is_joystick)
+                    {
+                        device.sdl_device_infos.remove(idx);
                         debug!(
-                            "Removed SDL {} device count for {}; Remaining SDL devices {}",
-                            if matches!(event, Event::JoyDeviceRemoved { .. }) {
-                                "Joystick"
-                            } else {
-                                "Gamepad"
-                            },
+                            "Removed SDL {} device info for {}; Remaining SDL devices {}",
+                            if is_joystick { "Joystick" } else { "Gamepad" },
                             which,
-                            device.sdl_device_count
+                            device.sdl_device_infos.len()
+                        );
+                    } else if before_len > 0 {
+                        warn!(
+                            "Could not find matching SDL {} device info to remove for {}",
+                            if is_joystick { "Joystick" } else { "Gamepad" },
+                            which
                         );
                     }
-                    if device.sdl_device_count == 0 {
+
+                    if device.sdl_device_infos.is_empty() {
                         self.viiper.remove_device(*which);
                         guard.devices.retain(|d| d.id != *which);
                         info!(
@@ -373,12 +386,13 @@ fn handle_new_device(
     which: u32,
     steam_handle: u64,
     is_joystick: bool,
+    sdl_device_info: SdlDeviceInfo,
 ) {
     let device = Device {
         id: which,
         steam_handle,
         state: DeviceState::default(),
-        sdl_device_count: 1,
+        sdl_device_infos: vec![sdl_device_info],
         ..Default::default()
     };
     if is_joystick {

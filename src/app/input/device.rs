@@ -1,6 +1,9 @@
 use std::fmt::Debug;
 
 use viiper_client::devices::xbox360;
+
+use super::sdl_device_info::SdlDeviceInfo;
+
 pub enum SDLDevice {
     Joystick(sdl3::joystick::Joystick),
     Gamepad(sdl3::gamepad::Gamepad),
@@ -28,10 +31,10 @@ pub struct Device {
     pub id: u32,
     pub steam_handle: u64,
     pub state: DeviceState,
-    pub sdl_device_count: usize,
     pub viiper_type: String,
     pub viiper_device: Option<viiper_client::types::Device>,
     pub viiper_connected: bool,
+    pub sdl_device_infos: Vec<SdlDeviceInfo>,
 }
 
 impl Default for Device {
@@ -40,10 +43,10 @@ impl Default for Device {
             id: 0,
             steam_handle: 0,
             state: DeviceState::default(),
-            sdl_device_count: 0,
             viiper_type: "xbox360".to_string(),
             viiper_device: None,
             viiper_connected: false,
+            sdl_device_infos: Vec::new(),
         }
     }
 }

@@ -22,7 +22,30 @@ impl EventHandler {
                 ui.group(|ui| {
                     ui.label(format!("Pad ID: {}", device.id));
                     ui.label(format!("Steam Handle: {}", device.steam_handle));
-                    ui.label(format!("SDL Device Count: {}", device.sdl_device_count));
+                    ui.label(format!(
+                        "SDL Device Count: {}",
+                        device.sdl_device_infos.len()
+                    ));
+
+                    for (idx, info) in device.sdl_device_infos.iter().enumerate() {
+                        ui.collapsing(
+                            format!(
+                                "SDL {} #{}",
+                                if info.is_gamepad {
+                                    "Gamepad"
+                                } else {
+                                    "Joystick"
+                                },
+                                idx
+                            ),
+                            |ui| {
+                                for (key, value) in &info.properties {
+                                    ui.label(format!("  {}: {}", key, value));
+                                }
+                            },
+                        );
+                    }
+
                     ui.group(|ui| {
                         ui.label("VIIPER Device:");
                         match &device.viiper_device {
