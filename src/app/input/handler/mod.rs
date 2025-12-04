@@ -44,10 +44,9 @@ impl EventHandler {
         gui_dispatcher: Arc<Mutex<Option<GuiDispatcher>>>,
         viiper_address: Option<SocketAddr>,
         async_handle: tokio::runtime::Handle,
+        sdl_joystick: sdl3::JoystickSubsystem,
+        sdl_gamepad: sdl3::GamepadSubsystem,
     ) -> Self {
-        let sdl = sdl3::init()
-            .inspect_err(|e| error!("failed to get handle on SDL: {}", e))
-            .unwrap();
         let state = Arc::new(Mutex::new(State {
             devices: Vec::new(),
             viiper_address,
@@ -57,8 +56,8 @@ impl EventHandler {
             winit_waker,
             gui_dispatcher,
             async_handle,
-            sdl_joystick: sdl.joystick().unwrap(),
-            sdl_gamepad: sdl.gamepad().unwrap(),
+            sdl_joystick,
+            sdl_gamepad,
             sdl_devices: HashMap::new(),
             state: state.clone(),
             viiper: ViiperBridge::new(viiper_address, sdl_waker, clone_handle),

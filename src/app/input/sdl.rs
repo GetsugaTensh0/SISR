@@ -1,4 +1,7 @@
-use std::sync::{Arc, Mutex};
+use std::{
+    sync::{Arc, Mutex},
+    thread,
+};
 
 use crate::app::{
     App,
@@ -6,15 +9,13 @@ use crate::app::{
     input::{handler::EventHandler, sdl_hints},
     window::RunnerEvent,
 };
-use sdl3::sys::events;
 use sdl3::{
     event::{Event, EventSender},
     gamepad::Gamepad,
 };
+use sdl3::{joystick::Joystick, sys::events};
 use tracing::{Level, debug, error, span, trace, warn};
 use winit::event_loop::EventLoopProxy;
-
-//
 
 pub fn get_gamepad_steam_handle(pad: &Gamepad) -> u64 {
     use sdl3::sys::gamepad::SDL_GetGamepadSteamHandle;
@@ -119,12 +120,20 @@ impl InputLoop {
             }
         }
 
-        let _ = sdl
-            .joystick()
-            .inspect_err(|e| error!("Failed to initialize SDL joystick subsystem: {e}"));
-        let _ = sdl
-            .gamepad()
-            .inspect_err(|e| error!("Failed to initialize SDL gamepad subsystem: {e}"));
+        let joystick_subsystem = match sdl.joystick() {
+            Ok(js) => js,
+            Err(e) => {
+                error!("Failed to initialize SDL joystick subsystem: {e}");
+                return;
+            }
+        };
+        let gamepad_subsystem = match sdl.gamepad() {
+            Ok(gp) => gp,
+            Err(e) => {
+                error!("Failed to initialize SDL gamepad subsystem: {e}");
+                return;
+            }
+        };
 
         match sdl.event() {
             Ok(event_subsystem) => {
@@ -169,7 +178,12 @@ impl InputLoop {
             });
         }
 
-        match self.run_loop(&mut event_pump, viiper_address) {
+        match self.run_loop(
+            &mut event_pump,
+            viiper_address,
+            joystick_subsystem,
+            gamepad_subsystem,
+        ) {
             Ok(_) => {}
             Err(_) => {
                 error!("SDL loop exited with error");
@@ -184,6 +198,8 @@ impl InputLoop {
         &mut self,
         event_pump: &mut sdl3::EventPump,
         viiper_address: Option<std::net::SocketAddr>,
+        joystick_subsystem: sdl3::JoystickSubsystem,
+        gamepad_subsystem: sdl3::GamepadSubsystem,
     ) -> Result<(), ()> {
         let span = span!(Level::INFO, "sdl_loop");
 
@@ -193,6 +209,8 @@ impl InputLoop {
             self.gui_dispatcher.clone(),
             viiper_address,
             self.async_handle.clone(),
+            joystick_subsystem,
+            gamepad_subsystem,
         );
         trace!("SDL loop starting");
         loop {

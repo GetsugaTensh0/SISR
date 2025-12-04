@@ -1,3 +1,5 @@
+use std::thread;
+
 use sdl3::event::Event;
 use tracing::{debug, error, info, trace, warn};
 
@@ -225,6 +227,18 @@ impl EventHandler {
                         warn!("No SDL gamepad found for device ID {}", which);
                         return;
                     };
+
+                    if device.steam_handle == 0 {
+                        let handle = get_gamepad_steam_handle(gamepad);
+                        if handle != 0 {
+                            device.steam_handle = handle;
+                            self.viiper.create_device(device);
+                            return;
+                        }
+                        warn!("Device ID {} has no steam handle in pad event", which);
+                        return;
+                    }
+
                     device.state.update_from_sdl_gamepad(gamepad);
 
                     self.viiper.update_device_state(device);
