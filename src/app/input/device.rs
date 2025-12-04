@@ -29,7 +29,7 @@ impl Debug for SDLDevice {
 #[derive(Debug)]
 pub struct Device {
     pub id: u64,               // internal device_id
-    pub sdl_ids: HashSet<u32>, // set of SDL instance IDs associated with this device
+    pub sdl_ids: HashSet<u32>, // set of SDL instance IDs (event.which) associated with this device
     pub steam_handle: u64,
     pub state: DeviceState,
     pub viiper_type: String,

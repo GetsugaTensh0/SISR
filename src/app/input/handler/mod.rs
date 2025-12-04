@@ -28,9 +28,7 @@ pub struct EventHandler {
     sdl_joystick: sdl3::JoystickSubsystem,
     sdl_gamepad: sdl3::GamepadSubsystem,
     sdl_devices: HashMap<u32, Vec<SDLDevice>>,
-    /// Reverse lookup: SDL instance ID → our Device ID
     sdl_id_to_device: HashMap<u32, u64>,
-    /// Counter for generating unique device IDs
     next_device_id: u64,
     viiper: ViiperBridge,
     state: Arc<Mutex<State>>,

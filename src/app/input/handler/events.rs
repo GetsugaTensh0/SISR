@@ -238,7 +238,10 @@ impl EventHandler {
                     return;
                 }
                 if !event.is_controller() {
-                    warn!("Received non-gamepad event in on_pad_event: {:?}", event);
+                    warn!(
+                        "Received non-gamepad/joystick event in on_pad_event: {:?}",
+                        event
+                    );
                     return;
                 }
                 // handle all other events and just "update gamepad"
@@ -249,7 +252,6 @@ impl EventHandler {
                     return;
                 };
 
-                // Look up our device ID for this SDL instance ID
                 let Some(&device_id) = self.sdl_id_to_device.get(&which) else {
                     warn!("No device found for SDL ID {} in pad event", which);
                     return;
