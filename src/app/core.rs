@@ -10,6 +10,7 @@ use super::tray;
 use super::window::WindowRunner;
 use crate::app::gui::dispatcher::GuiDispatcher;
 use crate::app::input::{self};
+use crate::app::signals;
 use crate::app::window::RunnerEvent;
 use crate::config;
 
@@ -62,7 +63,7 @@ impl App {
 
         let sdl_waker_for_ctrlc = self.sdl_waker.clone();
         let winit_waker_for_ctrlc = self.winit_waker.clone();
-        if let Err(e) = ctrlc::set_handler(move || {
+        if let Err(e) = signals::register_ctrlc_handler(move || {
             info!("Received Ctrl+C, shutting down...");
             Self::shutdown(Some(&sdl_waker_for_ctrlc), Some(&winit_waker_for_ctrlc));
         }) {

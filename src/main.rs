@@ -14,7 +14,6 @@ fn main() -> ExitCode {
     }
     info!("Starting SISR...");
 
-    // Install panic and ctrl+c handlers for Steam binding cleanup
     sisr::app::steam_utils::install_cleanup_handlers();
 
     let config = sisr::config::Config::parse();

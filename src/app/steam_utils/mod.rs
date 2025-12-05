@@ -3,7 +3,9 @@ mod binding_enforcer;
 pub use binding_enforcer::BindingEnforcer;
 
 use std::process::Command;
-use tracing::debug;
+use tracing::{debug, warn};
+
+use crate::app::signals;
 
 pub fn open_steam_url(url: &str) -> Result<(), std::io::Error> {
     debug!("Opening Steam URL: {}", url);
@@ -34,8 +36,9 @@ pub fn install_cleanup_handlers() {
         original_hook(panic_info);
     }));
 
-    let _ = ctrlc::set_handler(move || {
+    if let Err(e) = signals::register_ctrlc_handler(move || {
         let _ = open_steam_url("steam://forceinputappid/0");
-        std::process::exit(0);
-    });
+    }) {
+        warn!("Failed to install Steam cleanup Ctrl+C handler: {}", e);
+    }
 }
