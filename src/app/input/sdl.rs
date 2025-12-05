@@ -78,13 +78,7 @@ pub struct InputLoop {
     sdl_waker: Arc<Mutex<Option<EventSender>>>,
     winit_waker: Arc<Mutex<Option<EventLoopProxy<RunnerEvent>>>>,
     gui_dispatcher: Arc<Mutex<Option<GuiDispatcher>>>,
-    somedummy: Arc<Mutex<SomeTodoDummyDebugState>>,
     async_handle: tokio::runtime::Handle,
-}
-
-#[derive(Default)]
-struct SomeTodoDummyDebugState {
-    counter: u64,
 }
 
 impl InputLoop {
@@ -98,7 +92,6 @@ impl InputLoop {
             sdl_waker,
             winit_waker,
             gui_dispatcher,
-            somedummy: Arc::new(Mutex::new(SomeTodoDummyDebugState::default())),
             async_handle,
         }
     }
@@ -171,12 +164,8 @@ impl InputLoop {
             && let Some(dispatcher) = &*dispatcher_guard
         {
             debug!("SDL loop GUI dispatcher initialized");
-            let state = self.somedummy.clone();
             dispatcher.register_callback(move |ctx| {
-                if let Ok(mut guard) = state.lock() {
-                    let state = &mut *guard;
-                    InputLoop::on_draw(state, ctx);
-                }
+                InputLoop::on_draw(ctx);
             });
         }
 
@@ -241,15 +230,9 @@ impl InputLoop {
         span: &tracing::span::Span,
         redraw: &mut bool,
     ) -> Result<bool, ()> {
-        if let Ok(mut guard) = self.somedummy.lock() {
-            let state = &mut *guard;
-            state.counter += 1;
-        }
-
         let et = unsafe { sdl_event.r#type };
         match sdl3::sys::events::SDL_EventType(et) {
             SDL_EVENT_GAMEPAD_STEAM_HANDLE_UPDATED => {
-                let event = Event::from_ll(*sdl_event);
                 let which = unsafe { sdl_event.gdevice.which };
                 handler.on_steam_handle_updated(which);
                 *redraw = true;
@@ -314,10 +297,5 @@ impl InputLoop {
         }
     }
 
-    fn on_draw(state: &mut SomeTodoDummyDebugState, ctx: &egui::Context) {
-        egui::Window::new("SDL Input Loop").show(ctx, |ui| {
-            ui.label("SDL Input Loop is running!");
-            ui.label(format!("Event count: {}", state.counter));
-        });
-    }
+    fn on_draw(ctx: &egui::Context) {}
 }

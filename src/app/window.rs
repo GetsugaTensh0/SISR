@@ -16,6 +16,7 @@ use winit::window::{Window, WindowAttributes, WindowId};
 use winit::platform::windows::WindowAttributesExtWindows;
 
 use crate::app::gui::dispatcher::GuiDispatcher;
+use crate::app::gui::{dark_theme, light_theme};
 use crate::gfx::Gfx;
 
 pub enum RunnerEvent {
@@ -34,14 +35,40 @@ pub struct WindowRunner {
 }
 
 impl WindowRunner {
+    fn get_storage_path() -> Option<std::path::PathBuf> {
+        directories::ProjectDirs::from("", "", "SISR")
+            .map(|proj_dirs| proj_dirs.data_dir().join("egui_memory.ron"))
+    }
+
     pub fn new(
         winit_waker: Arc<Mutex<Option<winit::event_loop::EventLoopProxy<RunnerEvent>>>>,
         dispatcher: Arc<Mutex<Option<GuiDispatcher>>>,
     ) -> Self {
+        let ctx = Context::default();
+
+        if let Some(storage_path) = Self::get_storage_path()
+            && storage_path.exists()
+            && let Ok(contents) = std::fs::read_to_string(&storage_path)
+            && let Ok(memory) = ron::from_str(&contents)
+        {
+            ctx.memory_mut(|mem| *mem = memory);
+        }
+
+        let light_style = light_theme::style();
+        let dark_style = dark_theme::style();
+
+        ctx.all_styles_mut(|style| {
+            if style.visuals.dark_mode {
+                *style = dark_style.clone();
+            } else {
+                *style = light_style.clone();
+            }
+        });
+
         Self {
             window: None,
             gfx: None,
-            egui_ctx: Context::default(),
+            egui_ctx: ctx,
             egui_winit: None,
             egui_renderer: None,
             gui_dispatcher: dispatcher,
@@ -74,15 +101,24 @@ impl WindowRunner {
     }
 
     fn build_ui(dispatcher: &GuiDispatcher, ctx: &Context) {
-        // TODO: Render UI However, whenever, whatever
+        // egui::Window::new("⚙ EGUI Settings").show(ctx, |ui| {
+        //     ctx.settings_ui(ui);
+        // });
 
-        egui::Window::new("⚙ EGUI Settings").show(ctx, |ui| {
-            ctx.settings_ui(ui);
-        });
+        // egui::Window::new("🔍 EGUI Inspection").show(ctx, |ui| {
+        //     ctx.inspection_ui(ui);
+        // });
 
-        egui::Window::new("🔍 EGUI Inspection").show(ctx, |ui| {
-            ctx.inspection_ui(ui);
-        });
+        egui::Area::new(egui::Id::new("background_panel"))
+            .fixed_pos(egui::Pos2::ZERO)
+            .show(ctx, |ui| {
+                ui.painter().rect_filled(
+                    egui::Rect::everything_left_of(f32::INFINITY),
+                    0.0,
+                    egui::Color32::from_rgba_unmultiplied(0, 0, 0, 128),
+                );
+            });
+
         dispatcher.draw(ctx);
     }
 
@@ -283,6 +319,20 @@ impl ApplicationHandler<RunnerEvent> for WindowRunner {
 
         match event {
             WindowEvent::CloseRequested => {
+                if let Some(storage_path) = Self::get_storage_path() {
+                    if let Some(parent) = storage_path.parent() {
+                        _ = std::fs::create_dir_all(parent).inspect_err(|e| {
+                            error!("Error creating egui persistance directory: {}", e)
+                        });
+                    }
+                    self.egui_ctx.memory(|mem| {
+                        if let Ok(serialized) = ron::to_string(mem) {
+                            _ = std::fs::write(&storage_path, serialized).inspect_err(|e| {
+                                error!("Error writing egui persistance file: {}", e)
+                            });
+                        }
+                    });
+                }
                 event_loop.exit();
             }
             WindowEvent::Resized(size) => {

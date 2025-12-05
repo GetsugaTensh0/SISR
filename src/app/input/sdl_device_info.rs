@@ -70,19 +70,19 @@ impl From<&SDLDevice> for SdlDeviceInfo {
 
                 let mut axes = HashMap::new();
                 for i in 0..js.num_axes() {
-                    axes.insert(format!("Axis {}", i), SdlValue::String("✓".into()));
+                    axes.insert(format!("Axis {}", i), SdlValue::String("✅".into()));
                 }
                 properties.insert("axes".into(), SdlValue::Nested(axes));
 
                 let mut buttons = HashMap::new();
                 for i in 0..js.num_buttons() {
-                    buttons.insert(format!("Button {}", i), SdlValue::String("✓".into()));
+                    buttons.insert(format!("Button {}", i), SdlValue::String("✅".into()));
                 }
                 properties.insert("buttons".into(), SdlValue::Nested(buttons));
 
                 let mut hats = HashMap::new();
                 for i in 0..js.num_hats() {
-                    hats.insert(format!("Hat {}", i), SdlValue::String("✓".into()));
+                    hats.insert(format!("Hat {}", i), SdlValue::String("✅".into()));
                 }
                 properties.insert("hats".into(), SdlValue::Nested(hats));
 

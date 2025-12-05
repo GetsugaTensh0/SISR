@@ -15,7 +15,7 @@ winit = "0.30.12"
 wgpu = "27.0.1"
 pollster = "0.4.0"
 wgpu-types = "27.0.1"
-egui = "0.33.2"
+egui = { version = "0.33.2", features = ["persistence"] }
 egui-wgpu = "0.33.2"
 egui-winit = "0.33.2"
 egui_demo_lib = "0.33.2"
@@ -26,6 +26,8 @@ image = "0.25.9"
 viiper-client = { path = "../VIIPER/clients/rust", features = ["async"] }
 anyhow = "1.0.100"
 tokio = { version = "1", features = ["rt-multi-thread", "sync"] }
+ron = "0.12"
+directories = "6.0"
 
 
 [target."cfg(windows)".dependencies]

@@ -13,9 +13,10 @@ use std::{
 };
 
 use sdl3::event::EventSender;
-use tracing::debug;
+use tracing::{debug, warn};
 use winit::event_loop::EventLoopProxy;
 
+use crate::app::input::handler::gui::bottom_bar::BottomBar;
 use crate::app::{
     gui::dispatcher::GuiDispatcher,
     input::device::{Device, DeviceState, SDLDevice},
@@ -57,6 +58,7 @@ impl EventHandler {
             viiper_address,
             binding_enforcer: BindingEnforcer::new(),
         }));
+        let bottom_bar = Arc::new(Mutex::new(BottomBar::new()));
         let clone_handle = async_handle.clone();
         let res = Self {
             winit_waker,
@@ -75,12 +77,28 @@ impl EventHandler {
         {
             debug!("SDL loop GUI dispatcher initialized");
             dispatcher.register_callback(move |ctx| {
-                if let Ok(mut guard) = state.lock() {
-                    let state = &mut *guard;
-                    EventHandler::on_draw(state, ctx);
+                if let (Ok(mut state_guard), Ok(mut bar_guard)) = (state.lock(), bottom_bar.lock())
+                {
+                    let state = &mut *state_guard;
+                    let bar = &mut *bar_guard;
+                    EventHandler::on_draw(state, bar, ctx);
                 }
             });
         }
         res
+    }
+
+    pub(super) fn request_redraw(&self) {
+        _ = self
+            // the legend of zelda: the
+            .winit_waker
+            .lock()
+            .ok()
+            .and_then(|g| g.as_ref().map(|p| p.send_event(RunnerEvent::Redraw())))
+            .map(|r| r.inspect_err(|e| warn!("Failed to request GUI redraw: {}", e)));
+    }
+
+    pub(super) fn on_draw(state: &mut State, bottom_bar: &mut BottomBar, ctx: &egui::Context) {
+        bottom_bar.draw(state, ctx);
     }
 }
