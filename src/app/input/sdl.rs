@@ -6,11 +6,11 @@ use crate::app::{
     input::{handler::EventHandler, sdl_hints},
     window::RunnerEvent,
 };
+use sdl3::sys::events;
 use sdl3::{
     event::{Event, EventSender},
     gamepad::Gamepad,
 };
-use sdl3::sys::events;
 use tracing::{Level, debug, error, span, trace, warn};
 use winit::event_loop::EventLoopProxy;
 
@@ -103,6 +103,12 @@ impl InputLoop {
     pub fn run(&mut self, viiper_address: Option<std::net::SocketAddr>) {
         trace!("SDL_Init");
 
+        for (hint_name, hint_value) in sdl_hints::SDL_HINTS {
+            match sdl3::hint::set(hint_name, hint_value) {
+                true => trace!("Set SDL hint {hint_name}={hint_value}"),
+                false => warn!("Failed to set SDL hint {hint_name}={hint_value}"),
+            }
+        }
         let sdl = match sdl3::init() {
             Ok(sdl) => sdl,
             Err(e) => {
@@ -110,12 +116,6 @@ impl InputLoop {
                 return;
             }
         };
-        for (hint_name, hint_value) in sdl_hints::SDL_HINTS {
-            match sdl3::hint::set(hint_name, hint_value) {
-                true => trace!("Set SDL hint {hint_name}={hint_value}"),
-                false => warn!("Failed to set SDL hint {hint_name}={hint_value}"),
-            }
-        }
 
         let joystick_subsystem = match sdl.joystick() {
             Ok(js) => js,

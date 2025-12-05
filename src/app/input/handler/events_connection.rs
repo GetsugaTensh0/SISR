@@ -40,6 +40,54 @@ impl EventHandler {
             return;
         };
 
+        if let SDLDevice::Gamepad(ref gp) = sdl_device {
+            let path = gp.path();
+            if let Some(path) = path {
+                let (real_vid, real_pid) = match parse_real_vid_pid_from_path(&path) {
+                    Some((vid, pid)) => (vid, pid),
+                    None => {
+                        warn!(
+                            "Failed to parse real VID/PID from SDL device path: {}",
+                            path
+                        );
+                        ("unknown".to_string(), "unknown".to_string())
+                    }
+                };
+                let Ok(mut guard) = self.state.lock() else {
+                    error!("Failed to lock state for adding device");
+                    return;
+                };
+                let should_be_ignored = guard.devices.iter().find(|d| {
+                    d.viiper_device.clone().is_some_and(|vd| {
+                        vd.vid.to_lowercase() == real_vid && vd.pid.to_lowercase() == real_pid
+                    })
+                });
+                if should_be_ignored.is_some() {
+                    info!(
+                        "Ignoring Steam Virtual Gamepad with VID/PID {}/{} corresponding to existing VIIPER device",
+                        real_vid, real_pid
+                    );
+                    if let Some(&device_id) = self.sdl_id_to_device.get(which)
+                        && let Some(device) = guard.devices.iter_mut().find(|d| d.id == device_id)
+                        && device.sdl_device_infos.iter().any(|info| !info.is_gamepad)
+                    {
+                        drop(guard);
+                        // fake device removed event to clean up earlier Joystick entry
+                        self.on_pad_removed(&Event::JoyDeviceRemoved {
+                            timestamp: 0,
+                            which: *which,
+                        });
+                        info!(
+                            "Removed earlier Joystick device {} corresponding to ignored Steam Virtual Gamepad",
+                            device_id
+                        );
+                    }
+                    return;
+                }
+                drop(guard);
+            }
+        }
+
         let steam_handle = match &sdl_device {
             SDLDevice::Joystick(_) => 0,
             SDLDevice::Gamepad(p) => get_gamepad_steam_handle(p),
@@ -303,4 +351,22 @@ fn handle_new_device(
         viiper.create_device(&device);
     }
     guard.devices.push(device);
+}
+
+fn parse_real_vid_pid_from_path(path: &str) -> Option<(String, String)> {
+    // Path: \\.\pipe\HID#VID_045E&PID_028E&IG_00#045E&028E&00645E28E235E61F#2#4828
+    //                                          ^^^^ ^^^^
+    let parts: Vec<&str> = path.split('#').collect();
+    if parts.len() >= 3 {
+        // parts[2] should be "045E&028E&00645E28E235E61F"
+        let real_device = parts[2];
+        let vid_pid: Vec<&str> = real_device.split('&').collect();
+        if vid_pid.len() >= 2 {
+            return Some((
+                format!("0x{}", vid_pid[0].to_string()).to_lowercase(),
+                format!("0x{}", vid_pid[1].to_string()).to_lowercase(),
+            ));
+        }
+    }
+    None
 }
