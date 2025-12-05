@@ -10,7 +10,7 @@ use tracing::{error, info, warn};
 use viiper_client::AsyncViiperClient;
 use viiper_client::devices::xbox360;
 
-use crate::app::input::device::Device;
+use crate::app::input::device::{Device, DeviceState};
 
 enum StreamCommand {
     SendInput(xbox360::Xbox360Input),
@@ -264,17 +264,20 @@ impl ViiperBridge {
         }
     }
 
-    pub fn update_device_state(&self, device: &Device) {
+    pub fn update_device_state(&self, device_id: &u64, state: &DeviceState) {
         let Ok(senders) = self.stream_senders.lock() else {
             error!("Failed to lock VIIPER stream senders");
             return;
         };
-        if let Some(tx) = senders.get(&device.id) {
-            if let Err(e) = tx.send(StreamCommand::SendInput(device.state.input.clone())) {
-                error!("Failed to send input to VIIPER device {:?}: {}", device, e);
+        if let Some(tx) = senders.get(device_id) {
+            if let Err(e) = tx.send(StreamCommand::SendInput(state.input.clone())) {
+                error!(
+                    "Failed to send input to VIIPER device {:?}: {}",
+                    device_id, e
+                );
             }
         } else {
-            warn!("No VIIPER stream sender found for device ID {}", device.id);
+            warn!("No VIIPER stream sender found for device ID {}", device_id);
         }
     }
 

@@ -31,7 +31,6 @@ pub struct Device {
     pub id: u64,               // internal device_id
     pub sdl_ids: HashSet<u32>, // set of SDL instance IDs (event.which) associated with this device
     pub steam_handle: u64,
-    pub state: DeviceState,
     pub viiper_type: String,
     pub viiper_device: Option<viiper_client::types::Device>,
     pub viiper_connected: bool,
@@ -44,7 +43,6 @@ impl Default for Device {
             id: 0,
             sdl_ids: HashSet::new(),
             steam_handle: 0,
-            state: DeviceState::default(),
             viiper_type: "xbox360".to_string(),
             viiper_device: None,
             viiper_connected: false,

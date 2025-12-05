@@ -67,7 +67,7 @@ impl EventHandler {
                         "Ignoring Steam Virtual Gamepad with VID/PID {}/{} corresponding to existing VIIPER device",
                         real_vid, real_pid
                     );
-                    if let Some(&device_id) = self.sdl_id_to_device.get(which)
+                    if let Some(&(device_id, _)) = self.sdl_id_to_device.get(which)
                         && let Some(device) = guard.devices.iter_mut().find(|d| d.id == device_id)
                         && device.sdl_device_infos.iter().any(|info| !info.is_gamepad)
                     {
@@ -101,7 +101,7 @@ impl EventHandler {
             return;
         };
 
-        if let Some(&device_id) = self.sdl_id_to_device.get(which) {
+        if let Some(&(device_id, _)) = self.sdl_id_to_device.get(which) {
             if let Some(existing_device) = guard.devices.iter_mut().find(|d| d.id == device_id) {
                 existing_device.sdl_device_infos.push(sdl_device_info);
                 debug!(
@@ -121,7 +121,8 @@ impl EventHandler {
         } else {
             let device_id = self.next_device_id;
             self.next_device_id += 1;
-            self.sdl_id_to_device.insert(*which, device_id);
+            self.sdl_id_to_device
+                .insert(*which, (device_id, DeviceState::default()));
 
             handle_new_device(
                 &mut self.viiper,
@@ -162,7 +163,7 @@ impl EventHandler {
                 {
                     let is_joystick = matches!(event, Event::JoyDeviceRemoved { .. });
 
-                    let Some(&device_id) = self.sdl_id_to_device.get(which) else {
+                    let Some(&(device_id, _)) = self.sdl_id_to_device.get(which) else {
                         warn!("No device found for SDL ID {} in pad removal", which);
                         return;
                     };
@@ -259,7 +260,7 @@ impl EventHandler {
                 let steam_handle = get_gamepad_steam_handle(pad);
 
                 // Look up our device ID for this SDL instance ID
-                let Some(&device_id) = self.sdl_id_to_device.get(&instance_id) else {
+                let Some(&(device_id, _)) = self.sdl_id_to_device.get(&instance_id) else {
                     return;
                 };
 
@@ -330,7 +331,6 @@ fn handle_new_device(
         id: device_id,
         sdl_ids,
         steam_handle,
-        state: DeviceState::default(),
         sdl_device_infos: vec![sdl_device_info],
         ..Default::default()
     };

@@ -14,7 +14,7 @@ use crate::{
 use super::EventHandler;
 
 impl EventHandler {
-    pub fn on_pad_event(&self, event: &Event) {
+    pub fn on_pad_event(&mut self, event: &Event) {
         match event {
             Event::Unknown { .. } => {
                 // if nothing "outside" changed is
@@ -43,49 +43,63 @@ impl EventHandler {
                     return;
                 };
 
-                let Some(&device_id) = self.sdl_id_to_device.get(&which) else {
+                let Some((device_id, input_state)) = self.sdl_id_to_device.get_mut(&which) else {
                     warn!("No device found for SDL ID {} in pad event", which);
                     return;
                 };
+                // TODO: get rid of SEARCH!
+                let Some(gamepad) = self.sdl_devices.get(&which).and_then(|devs| {
+                    devs.iter()
+                        .find(|d| matches!(d, SDLDevice::Gamepad(_)))
+                        .and_then(|d| match d {
+                            SDLDevice::Gamepad(p) => Some(p),
+                            _ => None,
+                        })
+                }) else {
+                    warn!("No SDL gamepad found for SDL ID {}", which);
+                    return;
+                };
 
-                if let Ok(mut guard) = self
-                    .state
-                    .lock()
-                    .map_err(|e| error!("Failed to lock state for pad event: {}", e))
-                    && let Some(device) = guard.devices.iter_mut().find(|d| d.id == device_id)
-                {
-                    let Some(gamepad) = self.sdl_devices.get(&which).and_then(|devs| {
-                        devs.iter()
-                            .find(|d| matches!(d, SDLDevice::Gamepad(_)))
-                            .and_then(|d| match d {
-                                SDLDevice::Gamepad(p) => Some(p),
-                                _ => None,
-                            })
-                    }) else {
-                        warn!("No SDL gamepad found for SDL ID {}", which);
-                        return;
-                    };
+                input_state.update_from_sdl_gamepad(gamepad);
+                self.viiper.update_device_state(device_id, input_state);
+                // if let Ok(mut guard) = self
+                //     .state
+                //     .lock()
+                //     .map_err(|e| error!("Failed to lock state for pad event: {}", e))
+                //     && let Some(device) = guard.devices.iter_mut().find(|d| d.id == device_id)
+                // {
+                //     let Some(gamepad) = self.sdl_devices.get(&which).and_then(|devs| {
+                //         devs.iter()
+                //             .find(|d| matches!(d, SDLDevice::Gamepad(_)))
+                //             .and_then(|d| match d {
+                //                 SDLDevice::Gamepad(p) => Some(p),
+                //                 _ => None,
+                //             })
+                //     }) else {
+                //         warn!("No SDL gamepad found for SDL ID {}", which);
+                //         return;
+                //     };
 
-                    if device.steam_handle == 0 {
-                        let handle = get_gamepad_steam_handle(gamepad);
-                        if handle != 0 {
-                            device.steam_handle = handle;
-                            self.viiper.create_device(device);
-                            return;
-                        }
-                        warn!(
-                            "Device {} (SDL ID {}) has no steam handle in pad event",
-                            device_id, which
-                        );
-                        return;
-                    }
+                //     if device.steam_handle == 0 {
+                //         let handle = get_gamepad_steam_handle(gamepad);
+                //         if handle != 0 {
+                //             device.steam_handle = handle;
+                //             self.viiper.create_device(device);
+                //             return;
+                //         }
+                //         warn!(
+                //             "Device {} (SDL ID {}) has no steam handle in pad event",
+                //             device_id, which
+                //         );
+                //         return;
+                //     }
 
-                    device.state.update_from_sdl_gamepad(gamepad);
+                //     device.state.update_from_sdl_gamepad(gamepad);
 
-                    self.viiper.update_device_state(device);
-                } else {
-                    warn!("Device {} not found in state for pad event", device_id);
-                }
+                //     self.viiper.update_device_state(device);
+                // } else {
+                //     warn!("Device {} not found in state for pad event", device_id);
+                // }
             }
         }
     }

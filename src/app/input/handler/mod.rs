@@ -18,7 +18,7 @@ use winit::event_loop::EventLoopProxy;
 
 use crate::app::{
     gui::dispatcher::GuiDispatcher,
-    input::device::{Device, SDLDevice},
+    input::device::{Device, DeviceState, SDLDevice},
     steam_utils::BindingEnforcer,
     window::RunnerEvent,
 };
@@ -30,7 +30,7 @@ pub struct EventHandler {
     sdl_joystick: sdl3::JoystickSubsystem,
     sdl_gamepad: sdl3::GamepadSubsystem,
     sdl_devices: HashMap<u32, Vec<SDLDevice>>,
-    sdl_id_to_device: HashMap<u32, u64>,
+    sdl_id_to_device: HashMap<u32, (u64, DeviceState)>,
     next_device_id: u64,
     viiper: ViiperBridge,
     state: Arc<Mutex<State>>,
