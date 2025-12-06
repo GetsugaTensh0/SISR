@@ -70,6 +70,7 @@ impl BottomBar {
                             0.0,
                             TextFormat {
                                 font_id: FontId::new(56.0, egui::FontFamily::Proportional),
+                                color: ui.style().visuals.text_color(),
                                 ..Default::default()
                             },
                         );
@@ -79,6 +80,7 @@ impl BottomBar {
                             0.0,
                             TextFormat {
                                 font_id: ui.style().text_styles[&TextStyle::Heading].clone(),
+                                color: ui.style().visuals.text_color(),
                                 ..Default::default()
                             },
                         );
