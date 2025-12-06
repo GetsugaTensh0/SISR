@@ -160,22 +160,10 @@ jobs:
 
                   ls -la dist/package
 
-            - name: Create archive
-              shell: bash
-              run: |
-                  cd dist/package
-                  if [ "${{ matrix.target.os }}" = "windows-latest" ]; then
-                    7z a ../sisr-${{ matrix.target.name }}.zip *
-                  else
-                    tar -czf ../sisr-${{ matrix.target.name }}.tar.gz *
-                  fi
-                  cd ../..
-                  ls -la dist
-
             - name: Upload artifact
               if: ${{ inputs.upload_artifacts }}
               uses: actions/upload-artifact@v4
               with:
                   name: SISR-${{ matrix.target.name }}${{ inputs.artifact_suffix }}
-                  path: dist/sisr-${{ matrix.target.name }}.*
+                  path: dist/package/*
                   if-no-files-found: error
