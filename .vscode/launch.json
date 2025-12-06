@@ -28,7 +28,7 @@
             "console": "integratedTerminal"
         },
         {
-            "name": "Subug SISR cli",
+            "name": "Debug SISR cli",
             "type": "lldb",
             "request": "launch",
             "cargo": {
@@ -43,7 +43,7 @@
             },
             "args": [
                 "-l=trace",
-                "--log-file=sisr.log",
+                // "--log-file=sisr.log",
             ],
             "env": {
                 "RUSTFLAGS": "-C link-args=/SUBSYSTEM:CONSOLE"
