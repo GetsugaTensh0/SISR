@@ -1,7 +1,6 @@
 <img src="SISR.svg" align="right" width="128"/>
 <br />
 
-
 [![Build Status](https://github.com/alia5/SISR/actions/workflows/snapshots.yml/badge.svg)](https://github.com/alia5/SISR/actions/workflows/snapshots.yml)
 [![License: GPL-3.0](https://img.shields.io/github/license/alia5/SISR)](https://github.com/alia5/SISR/blob/main/LICENSE.txt)
 [![Release](https://img.shields.io/github/v/release/alia5/SISR?include_prereleases&sort=semver)](https://github.com/alia5/SISR/releases)
@@ -37,9 +36,13 @@ Unlike it's predecessor [GlosSI](https://github.com/Alia5/GlosSI), SISR uses [VI
 
 ## 😭 Mimimi (FAQ)
 
-### "Mimimi, I get doubled controllers"
+### "Mimimi, I get doubled controllers" / "Mimimi only one of my controllers controls multiple emulated controllers"
 
-- Turn off "Enable Steam Input for Xbox controllers" in Steam settings.  
+You can try one of the two follwoing things:
+
+1. Ensure that in the Steam Controller configurator for SISR, the controller order uses your "real" controllers **before any emulated controllers**.
+
+2. Turn off "Enable Steam Input for Xbox controllers" in Steam settings.  
 Otherwise Steam will pass through the emulated controller to SISR, which will then create another emulated controller, resulting in duplicates.
 
 ### "Mimimi, the game still detects my _real_ PS4/DualSense/whatever controller"
