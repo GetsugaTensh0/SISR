@@ -2,7 +2,7 @@ use egui::{Id, RichText, Vec2};
 use tracing::warn;
 
 use crate::app::input::handler::State;
-use crate::app::steam_utils;
+use crate::app::steam_utils::util::open_steam_url;
 
 pub fn draw(state: &mut State, ctx: &egui::Context, open: &mut bool) {
     if !*open {
@@ -62,7 +62,7 @@ pub fn draw(state: &mut State, ctx: &egui::Context, open: &mut bool) {
                 }
                 if ui.button("⚙ Open Configurator").clicked() {
                     let str = &format!("steam://controllerconfig/{}", enforcer.app_id().unwrap());
-                    _ = steam_utils::open_steam_url(str)
+                    _ = open_steam_url(str)
                         .inspect_err(|e| warn!("Failed to open Steam Input Configurator: {}", e));
                 }
             });

@@ -1,6 +1,7 @@
 use tracing::{debug, error, info, warn};
 
-use super::open_steam_url;
+use crate::app::{signals, steam_utils::util::open_steam_url};
+
 
 #[derive(Debug)]
 pub struct BindingEnforcer {
@@ -95,5 +96,24 @@ impl Drop for BindingEnforcer {
         if self.active {
             self.deactivate();
         }
+    }
+}
+
+pub fn install_cleanup_handlers() {
+    let original_hook = std::panic::take_hook();
+
+    std::panic::set_hook(Box::new(move |panic_info| {
+        let _ = open_steam_url("steam://forceinputappid/0").inspect_err(|e| {
+            error!("Failed to cleanup Steam binding enforcement on panic: {}", e);
+        });
+        original_hook(panic_info);
+    }));
+
+    if let Err(e) = signals::register_ctrlc_handler(move || {
+        let _ = open_steam_url("steam://forceinputappid/0").inspect_err(|e| {
+            error!("Failed to cleanup Steam binding enforcement on Ctrl+C: {}", e);
+        });
+    }) {
+        warn!("Failed to install Steam cleanup Ctrl+C handler: {}", e);
     }
 }

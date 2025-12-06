@@ -16,11 +16,10 @@ use sdl3::event::EventSender;
 use tracing::{debug, warn};
 use winit::event_loop::EventLoopProxy;
 
-use crate::app::input::handler::gui::bottom_bar::BottomBar;
+use crate::app::{input::handler::gui::bottom_bar::BottomBar, steam_utils::binding_enforcer::BindingEnforcer};
 use crate::app::{
     gui::dispatcher::GuiDispatcher,
     input::device::{Device, DeviceState, SDLDevice},
-    steam_utils::BindingEnforcer,
     window::RunnerEvent,
 };
 
