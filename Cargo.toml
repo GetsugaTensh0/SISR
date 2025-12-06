@@ -44,6 +44,8 @@ enable-ansi-support = "0.3.1"
 glib = "0.21"
 gtk = "0.18"
 
+[build-dependencies]
+winres = "0.1"
 
 [lib]
 name = "sisr"
