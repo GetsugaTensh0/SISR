@@ -135,6 +135,8 @@ Steam needs to be restarted.\n\n",
 
                     #[cfg(target_os = "windows")]
                     let status = std::process::Command::new("powershell")
+                        .arg("-ExecutionPolicy")
+                        .arg("Bypass")
                         .arg("-Command")
                         .arg(format!(
                             "Start-Process '{}' -ArgumentList '--create-cef-file','\"{}\"' -Verb RunAs",
