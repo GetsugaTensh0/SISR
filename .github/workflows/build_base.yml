@@ -60,28 +60,28 @@ jobs:
             matrix:
                 target:
                     - {
-                          name: "x86_64-pc-windows-msvc",
+                          name: "x86_64-windows-msvc",
                           os: "windows-latest",
                           ext: ".exe",
                           rust_target: "x86_64-pc-windows-msvc",
                           cross: false,
                       }
                     - {
-                          name: "aarch64-pc-windows-msvc",
+                          name: "aarch64-windows-msvc",
                           os: "windows-latest",
                           ext: ".exe",
                           rust_target: "aarch64-pc-windows-msvc",
                           cross: true,
                       }
                     - {
-                          name: "x86_64-unknown-linux-gnu",
+                          name: "x86_64-linux",
                           os: "ubuntu-latest",
                           ext: "",
                           rust_target: "x86_64-unknown-linux-gnu",
                           cross: false,
                       }
                     - {
-                          name: "aarch64-unknown-linux-gnu",
+                          name: "aarch64-linux",
                           os: "ubuntu-24.04-arm",
                           ext: "",
                           rust_target: "aarch64-unknown-linux-gnu",
@@ -163,13 +163,11 @@ jobs:
             - name: Create archive
               shell: bash
               run: |
-                  CLEAN_NAME=$(echo "${{ matrix.target.name }}" | sed 's/-unknown-/-/g' | sed 's/-pc-/-/g')
-
                   cd dist
                   if [ "${{ matrix.target.os }}" = "windows-latest" ]; then
-                    7z a -tzip "SISR-${CLEAN_NAME}${{ inputs.artifact_suffix }}.zip" ./package/*
+                    7z a -tzip "SISR-${{ matrix.target.name }}${{ inputs.artifact_suffix }}.zip" ./package/*
                   else
-                    tar -czf "SISR-${CLEAN_NAME}${{ inputs.artifact_suffix }}.tar.gz" -C package .
+                    tar -czf "SISR-${{ matrix.target.name }}${{ inputs.artifact_suffix }}.tar.gz" -C package .
                   fi
                   cd ..
 
@@ -177,7 +175,7 @@ jobs:
               if: ${{ inputs.upload_artifacts }}
               uses: actions/upload-artifact@v4
               with:
-                  name: SISR-${CLEAN_NAME}${{ inputs.artifact_suffix }}
+                  name: SISR-${{ matrix.target.name }}${{ inputs.artifact_suffix }}
                   path: |
                       dist/*.zip
                       dist/*.tar.gz
