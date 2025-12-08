@@ -38,12 +38,12 @@ Unlike it's predecessor [GlosSI](https://github.com/Alia5/GlosSI), SISR uses [VI
 
 ### "Mimimi, I get doubled controllers" / "Mimimi only one of my controllers controls multiple emulated controllers"
 
-You can try one of the two follwoing things:
+You can try one of the two following things:
 
 1. Ensure that in the Steam Controller configurator for SISR, the controller order uses your "real" controllers **before any emulated controllers**.
 
 2. Turn off "Enable Steam Input for Xbox controllers" in Steam settings.  
-Otherwise Steam will pass through the emulated controller to SISR, which will then create another emulated controller, resulting in duplicates.
+Otherwise Steam will pass through the emulated controller to SISR, which will then create another virtual controller, which will be passed to Steam, which will it pass to SISR, which will then create another virtual controller, which will be passed to Steam, which will it pass to SISR, which will then create another virtual controller, which will be passed to Steam, which will it pass to SISR, which will then create another virtual controller, which will be passed to Steam, which will it pass to SISR, which will then create another virtual controller, which will be passed to Steam, which will it pass to SISR, which will then create another virtual controller, which will be passed to Steam, which will it pass to SISR, which will then create another virtual controller, which will be passed to Steam, which will it pass to SISR, which will then create another virtual controller, which will be passed to Steam, which will it pass to SISR, which will then create another virtual controller, which will be passed to Steam, which will it pass to SISR, which will then create another virtual controller, which will be passed to Steam, which will it pass to SISR.
 
 ### "Mimimi, the game still detects my _real_ PS4/DualSense/whatever controller"
 
@@ -52,14 +52,17 @@ Automatic HidHide integration will (maybe) follow whenever soon™.
 
 ### "Mimimi, it doesn't work with my game"
 
-- Does the game work with regular Xbox 360 controllers? If yes, file an issue with logs. If no, tough luck.
+- Does the game work with regular Xbox 360 controllers?  
+  If yes, you are doing it wrong.  
+  If no, tough luck.
 
 ### "Mimimi, where's the GUI?"
 
-- It's a system tray app. Right-click the tray icon for options. What more do you want?  
-  You could also run `./sisr --help` ¯\\\_(ツ)\_/¯
+- It's a system tray app. Right-click the tray icon to show a window?  
+  You could also run `./sisr --help` to see what options are available.  
+  What more do you want? ¯\\\_(ツ)\_/¯
 
-### "Mimimi, I want feature XYZ back 😭"
+### "Mimimi, I want feature XYZ 😭"
 
 - Code it yourself and open up a PR.  
   Alternatively, hire me to do it for you - Rates start at 100€/hour.
@@ -90,3 +93,4 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 ```
+
