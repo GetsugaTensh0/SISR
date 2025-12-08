@@ -374,15 +374,20 @@ impl ApplicationHandler<RunnerEvent> for WindowRunner {
                     trace!("Dialog popped, requesting redraw");
                     window.request_redraw();
                     if !self.pre_dialog_window_visible {
-                        let registry = dialogs::REGISTRY
-                            .get()
-                            .expect("Dialog registry not initialized");
-                        if registry.is_empty() {
-                            debug!(
-                                "No more dialogs and window was previously hidden, hiding window again"
-                            );
-                            window.set_visible(false);
-                        }
+                        let window = window.clone();
+                        std::thread::spawn(move || {
+                            // wait a bit, hack to avoid flicker
+                            std::thread::sleep(Duration::from_millis(100));
+                            let registry = dialogs::REGISTRY
+                                .get()
+                                .expect("Dialog registry not initialized");
+                            if registry.is_empty() {
+                                debug!(
+                                    "No more dialogs and window was previously hidden, hiding window again"
+                                );
+                                window.set_visible(false);
+                            }
+                        });
                     }
                 }
             }
