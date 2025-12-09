@@ -187,7 +187,11 @@ impl Default for Config {
                 }
                 .to_string()
                 .into(),
-                log_file: None,
+                log_file: Some(LogFile {
+                    file_level: Some("Info".into()),
+                    path: directories::ProjectDirs::from("", "", "SISR")
+                        .map(|proj_dirs| proj_dirs.data_dir().join("SISR.log")),
+                }),
             },
             steam: SteamOpts {
                 cef_debug_disable: Some(false),
