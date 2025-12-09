@@ -1,7 +1,7 @@
 use std::sync::{Arc, Mutex, OnceLock};
 
 use anyhow::Error;
-use egui::{Align2, AtomExt, RichText, Vec2};
+use egui::{Align2, Vec2};
 use tracing::error;
 use winit::event_loop::EventLoopProxy;
 

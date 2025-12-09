@@ -3,7 +3,6 @@ use std::{
     sync::{Arc, Mutex, OnceLock},
 };
 
-use tokio::runtime::Handle;
 use tracing::{debug, error, info, trace, warn};
 use winit::event_loop::EventLoopProxy;
 

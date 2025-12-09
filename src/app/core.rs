@@ -12,7 +12,7 @@ use super::tray;
 use super::window::WindowRunner;
 use crate::app::gui::dispatcher::GuiDispatcher;
 use crate::app::input::handler::HandlerEvent;
-use crate::app::input::{self, sdl};
+use crate::app::input::{self};
 use crate::app::signals;
 use crate::app::steam_utils::cef_debug;
 use crate::app::steam_utils::cef_debug::ensure::{ensure_cef_enabled, ensure_steam_running};
