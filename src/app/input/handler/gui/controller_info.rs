@@ -21,6 +21,10 @@ pub fn draw(state: &mut State, sdl_waker: Arc<Mutex<Option<EventSender>>>,  ctx:
                 let mut devices: Vec<_> = state.devices.iter().collect();
                 devices.sort_by_key(|(_, device)| device.id);
                 for (_, device) in devices {
+                    if !cfg!(debug_assertions)
+                        && device.steam_handle == 0 {
+                            continue;
+                        }
                     let title = device
                         .sdl_device_infos
                         .iter()
