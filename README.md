@@ -16,23 +16,24 @@ SISR (pronounced "scissor") is a tool that allows users to redirect Steam Input 
 
 Unlike it's predecessor [GlosSI](https://github.com/Alia5/GlosSI), SISR uses [VIIPER](https://github.com/Alia5/VIIPER) _(requiring **USBIP**)_ instead of the unmaintained [ViGEm](https://github.com/ViGEm/ViGEmBus) driver, to emulate virtual controllers.  
 
-> ⚠️ **Highly experimental work in progress.** Everything is subject to change and may or may not work. Expect bugs, crashes, and missing features.
+> ⚠️ **Highly experimental work in progress.** Everything is subject to change and may or may not work.  
+Expect bugs, crashes, and missing features.
 
-## ⚙️ How It Works
+## Still here? 🤔 Okay here's how to get it running
 
-1. Add SISR as a non-Steam game to your Steam library
-2. Add the following launch arguments to SISR's Steam entry  
-   `--window-create=true --window-fullscreen=false --console`
-3. Launch a VIIPER server on your system _(will be bundled in future releases, **maybe, soon™**)_
-4. Launch SISR through Steam (so Steam Input can process your controllers)
-5. SISR captures Steam-processed gamepad inputs and creates virtual Xbox 360 controllers via VIIPER
-6. Launch your games normally (not through Steam) - they'll see the virtual controllers
-7. Configure your controllers using Steam's Input Configurator while SISR is running
-
-## 📦 Dependencies
-
-- **[VIIPER](https://github.com/Alia5/VIIPER)** server must be running on your system
-- **SISR must be added as a non-Steam game** and launched through Steam
+1. Make sure you have USBIP setup on your system  
+    - On Windows, install [USBIP-Win2](https://github.com/OSSign/vadimgrn--usbip-win2/releases)  
+    (use the latest **Pre**-Release)
+    - On Linux, install the `usbip` package (or whatever package includes this on whatever you are running) and load the `vhci-hcd` kernel modules
+2. Start Steam
+3. Start a [VIIPER](https://github.com/Alia5/VIIPER) server on your system  
+   Use the latest **Pre**-Release, and use the CLI.
+4. Start SISR. ¯\\\_(ツ)_/¯  
+    - If the automatic first time setup does not work (probable, as it's just a series of warnings and error dialogs ;P):
+      1. Create an empty file names `.cef-enable-remote-debugging` in **your steam installation directory** (e.g. `C:\Program Files (x86)\Steam` / `~/.steam/steam`)
+      2. Add SISR as a non-Steam game in your Steam library  
+       Set the launch options of that shortcut to `--marker`
+      3. Restart Steam, then restart SISR
 
 ## 😭 Mimimi (FAQ)
 
@@ -61,6 +62,21 @@ Automatic HidHide integration will (maybe) follow whenever soon™.
 - It's a system tray app. Right-click the tray icon to show a window?  
   You could also run `./sisr --help` to see what options are available.  
   What more do you want? ¯\\\_(ツ)\_/¯
+
+### "Mimimi, touch menus do not work"
+
+- Not implemented.
+
+### "Mimimi, I can only have one Steam Input config active"
+
+- **Nope.**  
+   Just add SISR multiple times as non-Steam (this time **without** `--marker` launch option) game and launch that ;)
+
+### "Mimimi, USBIP is slow, mimimi VIIPER also uses TCP mimimi. This causes input lag"
+
+- **Nope.**  
+  If you are experiencing input lag, it's another issue.  
+  See the E2E benchmarks from VIIPER.
 
 ### "Mimimi, I want feature XYZ 😭"
 
@@ -93,4 +109,3 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 ```
-
