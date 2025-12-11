@@ -121,12 +121,13 @@ pub struct LogOpts {
     pub level: Option<String>,
 
     #[command(flatten)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub log_file: Option<LogFile>,
 }
 
 #[derive(Parser, Debug, Serialize, Deserialize, Clone)]
 pub struct LogFile {
-    #[serde()]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     #[arg(
         long = "log-file",
         value_name = "FILE",
@@ -192,7 +193,7 @@ impl Default for Config {
                 .to_string()
                 .into(),
                 log_file: Some(LogFile {
-                    file_level: Some("Info".into()),
+                    file_level: None,
                     path: directories::ProjectDirs::from("", "", "SISR")
                         .map(|proj_dirs| proj_dirs.data_dir().join("SISR.log")),
                 }),
