@@ -14,7 +14,7 @@ use crate::app::window::RunnerEvent;
 
 use super::core::App;
 
-const ICON_BYTES: &[u8] = include_bytes!("../../assets/icon.png");
+const ICON_BYTES: &[u8] = include_bytes!("../../assets/icon.ico");
 
 #[cfg(windows)]
 static TRAY_THREAD_ID: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
