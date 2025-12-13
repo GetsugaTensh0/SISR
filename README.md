@@ -70,7 +70,7 @@ Automatic HidHide integration will (maybe) follow whenever soon™.
 ### "Mimimi, I can only have one Steam Input config active"
 
 - **Nope.**  
-   Just add SISR multiple times as non-Steam (this time **without** `--marker` launch option) game and launch that ;)
+   Just add SISR multiple times as non-Steam game (this time **without** `--marker` launch option) and launch that ;)
 
 ### "Mimimi, USBIP is slow, mimimi VIIPER also uses TCP mimimi. This causes input lag"
 
