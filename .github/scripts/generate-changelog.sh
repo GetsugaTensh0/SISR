@@ -86,33 +86,27 @@ done
 
 # Write changelog
 {
-  echo "# Changelog for $VERSION_TITLE"
-  echo ""
-  if [[ -z "$TAG_OR_RANGE" ]]; then
-    echo "This page shows unreleased changes in the development version."
-  else
-    echo "Release Date: $(date +'%Y-%m-%d')"
-  fi
+  echo "## Changelog for $VERSION_TITLE"
   echo ""
   echo "$CONTEXT_MSG"
   echo ""
   
   if [[ -n "$FEATURES" ]]; then
-    echo "## ✨ New Features"
+    echo "### ✨ New Features"
     echo ""
     echo "$FEATURES"
     echo ""
   fi
   
   if [[ -n "$FIXES" ]]; then
-    echo "## 🐛 Fixes"
+    echo "### 🐛 Fixes"
     echo ""
     echo "$FIXES"
     echo ""
   fi
   
   if [[ -n "$MISC" ]]; then
-    echo "## 🔧 Miscellaneous"
+    echo "### 🔧 Miscellaneous"
     echo ""
     echo "$MISC"
     echo ""

@@ -110,7 +110,6 @@ jobs:
 
             ⚠️ These are the latest development builds and may contain bugs or unfinished features.
 
-            ### Changes
             ${{ needs.generate-changelog.outputs.changelog }}
           files: |
             ./release_files/*
