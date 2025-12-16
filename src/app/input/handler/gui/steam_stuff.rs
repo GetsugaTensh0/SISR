@@ -2,10 +2,9 @@ use std::sync::{Arc, Mutex, atomic::Ordering};
 
 use egui::{Button, Id, RichText, Vec2};
 use sdl3::event::EventSender;
-use tracing::warn;
 
 use crate::app::input::handler::State;
-use crate::app::steam_utils::util::{launched_via_steam, open_steam_url};
+use crate::app::steam_utils::util::{launched_via_steam, open_controller_config};
 
 pub fn draw(
     state: &mut State,
@@ -108,10 +107,7 @@ pub fn draw(
                             ui.style_mut().spacing.button_padding = Vec2::new(12.0, 6.0);
                             let btn = Button::new("🛠 Open Configurator").selected(true);
                             if ui.add(btn).clicked() {
-                                let str = &format!("steam://controllerconfig/{}", app_id);
-                                _ = open_steam_url(str).inspect_err(|e| {
-                                    warn!("Failed to open Steam Input Configurator: {}", e)
-                                });
+                                state.async_handle.spawn(open_controller_config(app_id));
                             }
                             ui.reset_style();
                         });

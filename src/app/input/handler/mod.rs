@@ -48,6 +48,7 @@ pub(super) struct State {
     cef_debug_port: Option<u16>,
     steam_overlay_open: bool,
     window_continuous_redraw: Arc<AtomicBool>,
+    async_handle: tokio::runtime::Handle,
 }
 
 impl EventHandler {
@@ -69,6 +70,7 @@ impl EventHandler {
             cef_debug_port: None,
             steam_overlay_open: false,
             window_continuous_redraw: window_continuous_redraw.clone(),
+            async_handle: async_handle.clone(),
         }));
         let bottom_bar = Arc::new(Mutex::new(BottomBar::new()));
         let clone_handle = async_handle.clone();
