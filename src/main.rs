@@ -4,7 +4,7 @@
 use std::{env, process::ExitCode};
 
 use sisr::{
-    app::steam_utils::{self, util::load_steam_overlay},
+    app::steam_utils::{self},
     logging,
 };
 use tracing::{error, info, trace};
