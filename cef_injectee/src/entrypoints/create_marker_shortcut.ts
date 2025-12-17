@@ -3,8 +3,8 @@ declare global {
 }
 const main = async () => {
 
-    const path = SISR_PATH.replace(/\\/g, "/").toLowerCase();
-    const working_directory = path.substring(0, path.lastIndexOf("/")).toLowerCase();
+    const path = SISR_PATH.replace(/\\/g, "/");
+    const working_directory = path.substring(0, path.lastIndexOf("/"));
 
     let appID = await SteamClient.Apps.AddShortcut(
         "SISR Marker",
