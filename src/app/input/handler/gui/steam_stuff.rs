@@ -93,14 +93,16 @@ pub fn draw(
 
                 ui.separator();
 
-                let has_app_id = enforcer.app_id().is_some();
+                let has_app_id = enforcer.app_id().is_some() && enforcer.app_id() != Some(0);
                 let mut active = enforcer.is_active();
                 ui.separator();
                 ui.collapsing(
                     RichText::new("Steam Input Config").strong().size(18.0),
                     |ui| {
                         ui.add_enabled_ui(has_app_id, |ui| {
-                            let app_id = enforcer.app_id().expect("App ID should be present");
+                            let Some(app_id) = enforcer.app_id() else {
+                                return;
+                            };
 
                             if ui.checkbox(&mut active, "Force Config").changed() {
                                 if active {

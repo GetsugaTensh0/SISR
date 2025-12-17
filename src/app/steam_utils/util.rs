@@ -132,50 +132,41 @@ pub fn active_user_id() -> Option<u32> {
         // Untested AI code, but wel'll see...
         if let Some(steam_path) = steam_path() {
             let registry_vdf = steam_path.parent().map(|p| p.join("registry.vdf"));
-            if let Some(ref vdf_path) = registry_vdf {
-                if vdf_path.exists() {
-                    if let Ok(content) = std::fs::read_to_string(vdf_path) {
+            if let Some(ref vdf_path) = registry_vdf
+                && vdf_path.exists()
+                    && let Ok(content) = std::fs::read_to_string(vdf_path) {
                         for line in content.lines() {
                             let trimmed = line.trim();
                             if trimmed.starts_with("\"ActiveUser\"") {
                                 let parts: Vec<&str> = trimmed.split('"').collect();
-                                if parts.len() >= 4 {
-                                    if let Ok(user_id) = parts[3].parse::<u32>() {
-                                        if user_id != 0 {
+                                if parts.len() >= 4
+                                    && let Ok(user_id) = parts[3].parse::<u32>()
+                                        && user_id != 0 {
                                             trace!(
                                                 "Found active Steam user ID from registry.vdf: {}",
                                                 user_id
                                             );
                                             return Some(user_id);
                                         }
-                                    }
-                                }
                             }
                         }
                     }
-                }
-            }
-
             let userdata_path = steam_path.join("userdata");
-            if userdata_path.exists() {
-                if let Ok(entries) = std::fs::read_dir(&userdata_path) {
+            if userdata_path.exists()
+                && let Ok(entries) = std::fs::read_dir(&userdata_path) {
                     for entry in entries.flatten() {
-                        if entry.path().is_dir() {
-                            if let Some(name) = entry.file_name().to_str() {
-                                if let Ok(user_id) = name.parse::<u32>() {
-                                    if user_id != 0 {
+                        if entry.path().is_dir()
+                            && let Some(name) = entry.file_name().to_str()
+                                && let Ok(user_id) = name.parse::<u32>()
+                                    && user_id != 0 {
                                         trace!(
                                             "Found possibly active Steam user ID from userdata directory: {}",
                                             user_id
                                         );
                                         return Some(user_id);
                                     }
-                                }
-                            }
-                        }
                     }
                 }
-            }
         }
     }
 
@@ -229,6 +220,18 @@ pub fn get_shortcuts_path(steam_path: &PathBuf, steam_active_user_id: u32) -> Op
     }
 }
 
+fn get_case_insensitive<'a>(
+    obj: &'a serde_json::Value,
+    key: &str,
+) -> Option<&'a serde_json::Value> {
+    let obj_map = obj.as_object()?;
+    let key_lower = key.to_lowercase();
+    obj_map
+        .iter()
+        .find(|(k, _)| k.to_lowercase() == key_lower)
+        .map(|(_, v)| v)
+}
+
 pub fn shortcuts_has_sisr_marker(shortcuts_path: &PathBuf) -> u32 {
     let shortcuts = open_shortcuts_vdf(shortcuts_path);
     trace!("Parsed shortcuts.vdf: {:?}", shortcuts);
@@ -240,10 +243,10 @@ pub fn shortcuts_has_sisr_marker(shortcuts_path: &PathBuf) -> u32 {
     debug!("Current running executable path: {}", running_path_str);
     if let Some(shortcuts_array) = shortcuts.as_object() {
         for (_key, shortcut) in shortcuts_array {
-            let Some(path) = shortcut.get("exe") else {
+            let Some(path) = get_case_insensitive(shortcut, "exe") else {
                 continue;
             };
-            let Some(args) = shortcut.get("LaunchOptions") else {
+            let Some(args) = get_case_insensitive(shortcut, "LaunchOptions") else {
                 continue;
             };
             let Some(path_str) = path.as_str() else {
@@ -259,7 +262,9 @@ pub fn shortcuts_has_sisr_marker(shortcuts_path: &PathBuf) -> u32 {
                 .contains(&running_path_str.to_lowercase().replace("\\", "/"))
                 && args_str.to_lowercase().contains("--marker")
             {
-                let app_id = shortcut.get("appid").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
+                let app_id = get_case_insensitive(shortcut, "appid")
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(0) as u32;
                 return app_id;
             }
         }
