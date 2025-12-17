@@ -72,6 +72,10 @@ pub fn add_sink(sink: impl LogSink + 'static) {
 }
 
 pub fn add_file(path: &Path, level: Level) {
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).expect("Failed to create log directory");
+    }
+
     let file = File::options()
         .create(true)
         .write(true)
