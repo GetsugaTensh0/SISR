@@ -90,7 +90,7 @@ pub fn draw(
                     }
                     ui.label(
                         egui::RichText::new(
-                            "KB/M emulation required the SISR window to be in focus",
+                            "KB/M emulation requires the SISR window to be in focus",
                         )
                         .weak()
                         .small(),
