@@ -918,3 +918,20 @@ impl ApplicationHandler<RunnerEvent> for WindowRunner {
         }
     }
 }
+impl Drop for WindowRunner {
+    fn drop(&mut self) {
+        // some dependency bullshit crashes... "oh rust so so safe"...
+        if let Err(e) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            drop(self.egui_winit.take());
+        })) {
+            debug!(
+                "Clipboard worker thread panicked during cleanup (expected on shutdown): {:?}",
+                e
+            );
+        }
+
+        drop(self.egui_renderer.take());
+        drop(self.gfx.take());
+        drop(self.window.take());
+    }
+}

@@ -171,6 +171,9 @@ impl App {
         );
 
         let mut exit_code = window_runner.run();
+        
+        drop(window_runner);
+        
         Self::shutdown(Some(&self.sdl_waker), Some(&self.winit_waker));
 
         if let Err(e) = sdl_handle.join() {
