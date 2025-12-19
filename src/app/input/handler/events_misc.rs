@@ -199,46 +199,45 @@ Toggle UI/capture:\n\
         };
         guard.cef_debug_port = Some(port);
         self.request_redraw();
+        if !launched_via_steam() {
+            debug!("Launched via Steam, skipping CEF overlay notifier injection");
+            return;
+            // TODO: FIXME!
+        }
         let cont_redraw = guard.window_continuous_redraw.clone();
-        if launched_via_steam() {
-            if !cont_redraw.load(std::sync::atomic::Ordering::Relaxed) {
-                self.async_handle.spawn(async move {
-                    match cef_debug::inject::inject(
-                        "Overlay",
-                        str::from_utf8(cef_debug::payloads::OVERLAY_STATE_NOTIFIER)
-                            .expect("Failed to convert overlay notifier payload to string"),
-                    )
-                    .await
-                    {
-                        Ok(_) => info!("Successfully injected CEF overlay state notifier"),
-                        Err(e) => {
-                            error!("Failed to inject CEF overlay state notifier: {}", e);
-                            _ = push_dialog(Dialog::new_yes_no(
-                                "Failed to init Steam overlay notifier",
-                                format!(
-                                    "SISR was not able to initialize the overlay notifier.
+        if !cont_redraw.load(std::sync::atomic::Ordering::Relaxed) {
+            self.async_handle.spawn(async move {
+                match cef_debug::inject::inject(
+                    "Overlay",
+                    str::from_utf8(cef_debug::payloads::OVERLAY_STATE_NOTIFIER)
+                        .expect("Failed to convert overlay notifier payload to string"),
+                )
+                .await
+                {
+                    Ok(_) => info!("Successfully injected CEF overlay state notifier"),
+                    Err(e) => {
+                        error!("Failed to inject CEF overlay state notifier: {}", e);
+                        _ = push_dialog(Dialog::new_yes_no(
+                            "Failed to init Steam overlay notifier",
+                            format!(
+                                "SISR was not able to initialize the overlay notifier.
 You may experience a non working Steam Overlay, unless you enable the \"Continous Redraw\" option.
 This can cause higher CPU/GPU usage.
 Enable continous redraw now?
 
 \nError: {}",
-                                    e
-                                ),
-                                move || {
-                                    cont_redraw.store(true, std::sync::atomic::Ordering::Relaxed);
-                                },
-                                || {},
-                            ));
-                        }
+                                e
+                            ),
+                            move || {
+                                cont_redraw.store(true, std::sync::atomic::Ordering::Relaxed);
+                            },
+                            || {},
+                        ));
                     }
-                });
-            } else {
-                debug!(
-                    "Skipping CEF overlay notifier injection due to continuous draw being enabled"
-                );
-            }
+                }
+            });
         } else {
-            debug!("Not launched via Steam; skipping CEF overlay notifier injection");
+            debug!("Skipping CEF overlay notifier injection due to continuous draw being enabled");
         }
     }
 
@@ -268,6 +267,21 @@ Enable continous redraw now?
             guard
                 .window_continuous_redraw
                 .store(open, std::sync::atomic::Ordering::Relaxed);
+        }
+        drop(guard);
+
+        let Ok(waker_guard) = self.winit_waker.lock() else {
+            error!(
+                "Failed to acquire winit waker lock on Steam overlay state change to {}",
+                open
+            );
+            return;
+        };
+        if let Some(proxy) = waker_guard.as_ref()
+            && let Err(e) =
+                proxy.send_event(crate::app::window::RunnerEvent::OverlayStateChanged(open))
+        {
+            error!("Failed to send overlay state change to window: {}", e);
         }
     }
 }

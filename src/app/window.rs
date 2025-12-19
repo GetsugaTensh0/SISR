@@ -1,3 +1,4 @@
+use egui::text::LayoutJob;
 use std::convert::TryFrom;
 use std::process::ExitCode;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -5,7 +6,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tokio::sync::Notify;
 
-use egui::Context;
+use egui::{Align, Context, FontId, TextFormat, Vec2};
 use egui_wgpu::Renderer as EguiRenderer;
 use egui_wgpu::ScreenDescriptor;
 use egui_winit::State as EguiWinitState;
@@ -14,12 +15,13 @@ use tracing::{debug, error, trace, warn};
 use winit::application::ApplicationHandler;
 use winit::event::{DeviceEvent, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
-use winit::window::{CursorGrabMode, Window, WindowAttributes, WindowId};
+use winit::window::{CursorGrabMode, Fullscreen, Window, WindowAttributes, WindowId, WindowLevel};
 
 #[cfg(windows)]
 use winit::platform::windows::WindowAttributesExtWindows;
 
 use crate::app::gui::dispatcher::GuiDispatcher;
+use crate::app::gui::stacked_button::stacked_button;
 use crate::app::gui::{dark_theme, dialogs, light_theme};
 use crate::app::input::{handler::HandlerEvent, kbm_events, kbm_winit_map};
 use crate::config::{self, CONFIG};
@@ -37,6 +39,7 @@ pub enum RunnerEvent {
     ToggleUi(),
     EnterCaptureMode(),
     SetKbmCursorGrab(bool),
+    OverlayStateChanged(bool),
 }
 
 pub struct WindowRunner {
@@ -53,8 +56,13 @@ pub struct WindowRunner {
     continuous_redraw: Arc<AtomicBool>,
     last_cursor_pos: Option<(f64, f64)>,
     kbm_emulation_enabled: Arc<AtomicBool>,
+    window_visible_shared: Arc<Mutex<bool>>,
+    ui_visible_shared: Arc<Mutex<bool>>,
     ui_visible: bool,
     modifiers: winit::keyboard::ModifiersState,
+    fullscreen: bool,
+    passthrough_active: bool,
+    overlay_open: bool,
 }
 
 impl WindowRunner {
@@ -70,6 +78,8 @@ impl WindowRunner {
         window_ready: Arc<Notify>,
         continuous_redraw: Arc<AtomicBool>,
         kbm_emulation_enabled: Arc<AtomicBool>,
+        window_visible_shared: Arc<Mutex<bool>>,
+        ui_visible_shared: Arc<Mutex<bool>>,
     ) -> Self {
         let ctx = Context::default();
 
@@ -92,6 +102,7 @@ impl WindowRunner {
             }
         });
 
+        let cfg = CONFIG.get().cloned().expect("Config not set");
         Self {
             window: None,
             gfx: None,
@@ -113,8 +124,17 @@ impl WindowRunner {
             continuous_redraw,
             last_cursor_pos: None,
             kbm_emulation_enabled: kbm_emulation_enabled.clone(),
-            ui_visible: !kbm_emulation_enabled.load(Ordering::Relaxed),
+            window_visible_shared,
+            ui_visible_shared,
+            ui_visible: if cfg.window.fullscreen.unwrap_or(true) {
+                false
+            } else {
+                !kbm_emulation_enabled.load(Ordering::Relaxed)
+            },
             modifiers: Default::default(),
+            fullscreen: cfg.window.fullscreen.unwrap_or(true),
+            passthrough_active: false,
+            overlay_open: false,
         }
     }
 
@@ -163,6 +183,20 @@ impl WindowRunner {
                 ExitCode::from(1)
             }
         }
+    }
+
+    fn set_passthrough(&mut self, enable: bool) {
+        let Some(window) = &self.window else {
+            return;
+        };
+        // Don't enable passthrough if overlay is open
+        let enable = enable && !self.overlay_open;
+
+        if self.passthrough_active == enable {
+            return;
+        }
+        self.passthrough_active = enable;
+        let _ = window.set_cursor_hittest(!enable);
     }
 
     fn draw_ui(dispatcher: &GuiDispatcher, ctx: &Context) {
@@ -225,6 +259,69 @@ impl WindowRunner {
                 && let Some(dispatcher) = &*guard
             {
                 Self::draw_ui(dispatcher, ctx);
+
+                if self.fullscreen {
+                    egui::Area::new(egui::Id::new("hide_ui_button"))
+                        .fixed_pos(egui::Pos2::new(
+                            ctx.viewport_rect().max.x,
+                            ctx.viewport_rect().min.y,
+                        ))
+                        .show(ctx, |ui| {
+                            let mut job = LayoutJob {
+                                halign: Align::Center,
+                                ..Default::default()
+                            };
+                            job.append(
+                                "❌",
+                                0.0,
+                                TextFormat {
+                                    font_id: FontId::new(32.0, egui::FontFamily::Proportional),
+                                    color: ui.style().visuals.text_color(),
+                                    ..Default::default()
+                                },
+                            );
+
+                            let response = stacked_button(ui, job, true, Vec2::new(24.0, 12.0));
+                            if response.clicked() {
+                                #[allow(clippy::collapsible_if)]
+                                if let Ok(guard) = self.winit_waker.lock()
+                                    && let Some(proxy) = guard.as_ref()
+                                {
+                                    let _ = proxy.send_event(RunnerEvent::ToggleUi());
+                                }
+                            }
+                        });
+                    egui::Area::new(egui::Id::new("exit_sisr_button"))
+                        .fixed_pos(egui::Pos2::new(
+                            ctx.viewport_rect().max.x,
+                            ctx.viewport_rect().max.y,
+                        ))
+                        .show(ctx, |ui| {
+                            let mut job = LayoutJob {
+                                halign: Align::Center,
+                                ..Default::default()
+                            };
+                            job.append(
+                                "Close SISR",
+                                0.0,
+                                TextFormat {
+                                    font_id: FontId::new(32.0, egui::FontFamily::Proportional),
+                                    color: ui.style().visuals.text_color(),
+                                    ..Default::default()
+                                },
+                            );
+
+                            let response = stacked_button(ui, job, true, Vec2::new(24.0, 12.0));
+                            if response.clicked() {
+                                #[allow(clippy::collapsible_if)]
+                                if let Ok(guard) = self.winit_waker.lock()
+                                    && let Some(proxy) = guard.as_ref()
+                                {
+                                    let _ = proxy.send_event(RunnerEvent::Quit());
+                                }
+                            }
+                        });
+                }
             }
 
             Self::draw_dialogs(ctx);
@@ -357,10 +454,18 @@ impl ApplicationHandler<RunnerEvent> for WindowRunner {
         #[allow(unused_mut)]
         let mut window_attrs = WindowAttributes::default()
             .with_title("SISR")
-            .with_inner_size(winit::dpi::LogicalSize::new(1280.0, 720.0))
             .with_transparent(true)
             .with_visible(initially_visible)
             .with_window_icon(icon.clone());
+
+        if self.fullscreen {
+            window_attrs = window_attrs
+                .with_fullscreen(Some(Fullscreen::Borderless(None)))
+                .with_decorations(false);
+        } else {
+            window_attrs =
+                window_attrs.with_inner_size(winit::dpi::LogicalSize::new(1280.0, 720.0));
+        }
 
         #[cfg(windows)]
         {
@@ -379,6 +484,9 @@ impl ApplicationHandler<RunnerEvent> for WindowRunner {
         );
 
         window.set_visible(initially_visible);
+        if self.fullscreen {
+            window.set_window_level(WindowLevel::AlwaysOnTop);
+        }
         trace!("Window created, visible: {}", initially_visible);
         let gfx = pollster::block_on(Gfx::new(window.clone()));
 
@@ -400,11 +508,15 @@ impl ApplicationHandler<RunnerEvent> for WindowRunner {
         self.gfx = Some(gfx);
         self.window = Some(window);
 
+        let passthrough = self.fullscreen
+            && !self.ui_visible
+            && !self.kbm_emulation_enabled.load(Ordering::Relaxed);
+        self.set_passthrough(passthrough);
         if !self.ui_visible
-            && let Some(window) = &self.window
             && self.kbm_emulation_enabled.load(Ordering::Relaxed)
+            && let Some(window) = &self.window
         {
-            // clippy.....
+            // CLIPPY!!!!
             if let Err(e) = window.set_cursor_grab(CursorGrabMode::Confined) {
                 warn!("Failed to confine cursor to window: {e}");
             }
@@ -428,12 +540,19 @@ impl ApplicationHandler<RunnerEvent> for WindowRunner {
                 if let Some(window) = &self.window {
                     debug!("showing window");
                     window.set_visible(true);
+                    if self.fullscreen {
+                        window.set_window_level(WindowLevel::AlwaysOnTop);
+                    }
                     window.focus_window();
                     if !self.ui_visible && self.kbm_emulation_enabled.load(Ordering::Relaxed) {
-                        // fuck clippy, there's a difference
+                        // fuck clippy, there's a difference!
                         if let Err(e) = window.set_cursor_grab(CursorGrabMode::Confined) {
                             warn!("Failed to confine cursor to window: {e}");
                         }
+                    }
+
+                    if let Ok(mut guard) = self.window_visible_shared.lock() {
+                        *guard = true;
                     }
 
                     window.request_redraw();
@@ -446,12 +565,16 @@ impl ApplicationHandler<RunnerEvent> for WindowRunner {
                     debug!("hiding window");
                     _ = window.set_cursor_grab(CursorGrabMode::None);
                     window.set_visible(false);
+
+                    if let Ok(mut guard) = self.window_visible_shared.lock() {
+                        *guard = false;
+                    }
                 } else {
                     error!("Window is None, cannot hide");
                 }
             }
             RunnerEvent::ToggleUi() => {
-                let Some(window) = &self.window else {
+                let Some(window) = self.window.clone() else {
                     return;
                 };
 
@@ -459,25 +582,53 @@ impl ApplicationHandler<RunnerEvent> for WindowRunner {
 
                 if self.ui_visible {
                     self.ui_visible = false;
+                    if let Ok(mut g) = self.ui_visible_shared.lock() {
+                        *g = false;
+                    }
+                    let passthrough = self.fullscreen && !kbm_emu_enabled;
+                    self.set_passthrough(passthrough);
                     if kbm_emu_enabled {
-                        // screw clippy
+                        // SCREW CLIPPY!
                         if let Err(e) = window.set_cursor_grab(CursorGrabMode::Confined) {
                             warn!("Failed to confine cursor to window: {e}");
                         }
                     }
+                    if self.fullscreen && !self.pre_dialog_window_visible {
+                        window.set_visible(false);
+                        if let Ok(mut guard) = self.window_visible_shared.lock() {
+                            *guard = false;
+                        }
+                    }
                 } else {
                     self.ui_visible = true;
+                    if let Ok(mut g) = self.ui_visible_shared.lock() {
+                        *g = true;
+                    }
+                    self.set_passthrough(false);
                     _ = window.set_cursor_grab(CursorGrabMode::None);
                     self.try_push_kbm_event(HandlerEvent::KbmReleaseAll());
+                    if !self.pre_dialog_window_visible {
+                        window.set_visible(true);
+                        if let Ok(mut guard) = self.window_visible_shared.lock() {
+                            *guard = true;
+                        }
+                    }
+                    if self.fullscreen {
+                        window.set_window_level(WindowLevel::AlwaysOnTop);
+                    }
+                    window.focus_window();
                 }
 
                 window.request_redraw();
             }
             RunnerEvent::EnterCaptureMode() => {
-                let Some(window) = &self.window else {
+                let Some(window) = self.window.clone() else {
                     return;
                 };
                 self.ui_visible = false;
+                self.set_passthrough(
+                    self.fullscreen && !self.kbm_emulation_enabled.load(Ordering::Relaxed),
+                );
                 if let Err(e) = window.set_cursor_grab(CursorGrabMode::Confined) {
                     warn!("Failed to confine cursor to window: {e}");
                 }
@@ -486,19 +637,44 @@ impl ApplicationHandler<RunnerEvent> for WindowRunner {
             RunnerEvent::SetKbmCursorGrab(enabled) => {
                 self.kbm_emulation_enabled.store(enabled, Ordering::Relaxed);
 
-                let Some(window) = &self.window else {
+                let Some(window) = self.window.clone() else {
                     return;
                 };
                 if window.is_visible() == Some(false) {
                     return;
                 }
+                let passthrough = self.fullscreen && !self.ui_visible && !enabled;
+                self.set_passthrough(passthrough);
                 if !self.ui_visible {
-                    _ = window.set_cursor_grab(CursorGrabMode::None);
+                    if enabled {
+                        if let Err(e) = window.set_cursor_grab(CursorGrabMode::Confined) {
+                            warn!("Failed to confine cursor to window: {e}");
+                        }
+                    } else {
+                        _ = window.set_cursor_grab(CursorGrabMode::None);
+                    }
                 } else if let Err(e) = window.set_cursor_grab(CursorGrabMode::Confined) {
                     warn!("Failed to confine cursor to window: {e}");
                 }
             }
+            RunnerEvent::OverlayStateChanged(open) => {
+                self.overlay_open = open;
+                if open {
+                    debug!("Steam overlay opened, disabling passthrough");
+                    self.set_passthrough(false);
+                } else {
+                    let should_passthrough = self.fullscreen
+                        && !self.ui_visible
+                        && !self.kbm_emulation_enabled.load(Ordering::Relaxed);
+                    debug!(
+                        "Steam overlay closed, restoring passthrough: {}",
+                        should_passthrough
+                    );
+                    self.set_passthrough(should_passthrough);
+                }
+            }
             RunnerEvent::DialogPushed() => {
+                self.set_passthrough(false);
                 self.pre_dialog_window_visible = self
                     .window
                     .as_ref()
@@ -508,6 +684,9 @@ impl ApplicationHandler<RunnerEvent> for WindowRunner {
                     if !self.pre_dialog_window_visible {
                         debug!("Dialog pushed to hidden window, Showing window for dialog");
                         window.set_visible(true);
+                        if self.fullscreen {
+                            window.set_window_level(WindowLevel::AlwaysOnTop);
+                        }
                         window.focus_window();
                     }
                     trace!("Dialog pushed, requesting redraw");
@@ -515,6 +694,10 @@ impl ApplicationHandler<RunnerEvent> for WindowRunner {
                 }
             }
             RunnerEvent::DialogPopped() => {
+                let should_restore_passthrough = self.fullscreen
+                    && !self.ui_visible
+                    && !self.kbm_emulation_enabled.load(Ordering::Relaxed);
+                self.set_passthrough(should_restore_passthrough);
                 if let Some(window) = &self.window {
                     trace!("Dialog popped, requesting redraw");
                     window.request_redraw();
@@ -593,7 +776,11 @@ impl ApplicationHandler<RunnerEvent> for WindowRunner {
             return;
         }
 
-        if self.ui_visible {
+        let any_dialog_shown = dialogs::REGISTRY
+            .get()
+            .map(|registry| !registry.is_empty())
+            .unwrap_or(false);
+        if self.ui_visible || any_dialog_shown {
             let mut egui_consumed = false;
             if let (Some(egui_winit), Some(window)) = (&mut self.egui_winit, &self.window) {
                 let response = egui_winit.on_window_event(window.as_ref(), &event);

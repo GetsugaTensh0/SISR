@@ -47,9 +47,11 @@ struct TrayContext {
     kbm_emulation_id: Option<MenuId>,
     kbm_emulation_enabled: Arc<AtomicBool>,
     window_visible: Arc<Mutex<bool>>,
+    ui_visible: Arc<Mutex<bool>>,
     sdl_waker: Arc<Mutex<Option<EventSender>>>,
     winit_waker: Arc<Mutex<Option<EventLoopProxy<RunnerEvent>>>>,
     async_handle: Handle,
+    fullscreen: bool,
 }
 
 impl TrayContext {
@@ -57,17 +59,37 @@ impl TrayContext {
         sdl_waker: Arc<Mutex<Option<EventSender>>>,
         winit_waker: Arc<Mutex<Option<EventLoopProxy<RunnerEvent>>>>,
         window_visible: Arc<Mutex<bool>>,
+        ui_visible: Arc<Mutex<bool>>,
         async_handle: Handle,
         kbm_emulation_enabled: Arc<AtomicBool>,
     ) -> Self {
         let icon = load_icon();
         let menu = Menu::new();
 
+        let fullscreen = CONFIG
+            .read()
+            .ok()
+            .and_then(|c| c.as_ref().map(|cfg| cfg.window.fullscreen.unwrap_or(true)))
+            .unwrap_or(true);
         let initial_visible = *window_visible.lock().unwrap();
-        let initial_text = if initial_visible {
-            "Hide Window"
+        let initial_ui_visible = if fullscreen {
+            *ui_visible.lock().unwrap()
         } else {
-            "Show Window"
+            initial_visible
+        };
+        let initial_text = if fullscreen {
+            if initial_ui_visible {
+                "Hide UI"
+            } else {
+                "Show UI"
+            }
+        } else {
+            #[allow(clippy::collapsible_else_if)]
+            if initial_visible {
+                "Hide Window"
+            } else {
+                "Show Window"
+            }
         };
         let toggle_window_item = MenuItem::new(initial_text, true, None);
         let toggle_window_id = toggle_window_item.id().clone();
@@ -92,9 +114,12 @@ impl TrayContext {
         let initial_kbm_enabled = kbm_emulation_enabled.load(Ordering::Relaxed);
 
         let (kbm_emulation_item, kbm_emulation_id) = {
-            let viiper_is_loopback = CONFIG
-                .get()
-                .and_then(|c| c.viiper_address.as_ref())
+            let viiper_address = CONFIG
+                .read()
+                .ok()
+                .and_then(|c| c.as_ref().and_then(|cfg| cfg.viiper_address.clone()));
+            let viiper_is_loopback = viiper_address
+                .as_ref()
                 .and_then(|addr_str| addr_str.to_socket_addrs().ok())
                 .and_then(|mut addrs| addrs.next())
                 .map(|addr| addr.ip().is_loopback())
@@ -136,9 +161,11 @@ impl TrayContext {
             kbm_emulation_id,
             kbm_emulation_enabled,
             window_visible,
+            ui_visible,
             sdl_waker,
             winit_waker,
             async_handle,
+            fullscreen,
         }
     }
 
@@ -154,6 +181,21 @@ impl TrayContext {
             item.set_checked(self.kbm_emulation_enabled.load(Ordering::Relaxed));
         }
 
+        let (menu_text, is_fullscreen) = if self.fullscreen {
+            if let Ok(guard) = self.ui_visible.lock() {
+                let ui_vis = *guard;
+                (if ui_vis { "Hide UI" } else { "Show UI" }, true)
+            } else {
+                ("Show UI", true)
+            }
+        } else if let Ok(guard) = self.window_visible.lock() {
+            let vis = *guard;
+            (if vis { "Hide Window" } else { "Show Window" }, false)
+        } else {
+            ("Show Window", false)
+        };
+        self.toggle_window_item.set_text(menu_text);
+
         if let Ok(event) = MenuEvent::receiver().try_recv() {
             if event.id == self.quit_id {
                 info!("Quit requested from tray menu");
@@ -161,32 +203,27 @@ impl TrayContext {
                 return true;
             }
             if event.id == self.toggle_window_id {
-                let Ok(mut guard) = self.window_visible.lock() else {
-                    error!("Failed to lock window_visible mutex");
-                    return false;
-                };
-                *guard = !*guard;
-                let visible = *guard;
-                drop(guard);
-
-                let menu_text = if visible {
-                    "Hide Window"
-                } else {
-                    "Show Window"
-                };
-                self.toggle_window_item.set_text(menu_text);
-
                 let Ok(winit_guard) = self.winit_waker.lock() else {
                     error!("Failed to lock winit_waker mutex");
                     return false;
                 };
                 if let Some(proxy) = &*winit_guard {
-                    let event = if visible {
-                        RunnerEvent::ShowWindow()
+                    if self.fullscreen {
+                        _ = proxy.send_event(RunnerEvent::ToggleUi());
                     } else {
-                        RunnerEvent::HideWindow()
-                    };
-                    _ = proxy.send_event(event);
+                        let visible = if let Ok(mut guard) = self.window_visible.lock() {
+                            *guard = !*guard;
+                            *guard
+                        } else {
+                            false
+                        };
+                        let event = if visible {
+                            RunnerEvent::ShowWindow()
+                        } else {
+                            RunnerEvent::HideWindow()
+                        };
+                        _ = proxy.send_event(event);
+                    }
                 }
                 return false;
             }
@@ -266,6 +303,7 @@ pub fn run(
     sdl_waker: Arc<Mutex<Option<EventSender>>>,
     winit_waker: Arc<Mutex<Option<EventLoopProxy<RunnerEvent>>>>,
     window_visible: Arc<Mutex<bool>>,
+    ui_visible: Arc<Mutex<bool>>,
     async_handle: Handle,
     kbm_emulation_enabled: Arc<AtomicBool>,
 ) {
@@ -275,6 +313,7 @@ pub fn run(
         sdl_waker,
         winit_waker,
         window_visible,
+        ui_visible,
         async_handle,
         kbm_emulation_enabled,
     );
@@ -286,6 +325,7 @@ fn run_platform(
     sdl_waker: Arc<Mutex<Option<EventSender>>>,
     winit_waker: Arc<Mutex<Option<EventLoopProxy<RunnerEvent>>>>,
     window_visible: Arc<Mutex<bool>>,
+    ui_visible: Arc<Mutex<bool>>,
     async_handle: Handle,
     kbm_emulation_enabled: Arc<AtomicBool>,
 ) {
@@ -301,6 +341,7 @@ fn run_platform(
         sdl_waker,
         winit_waker,
         window_visible,
+        ui_visible.clone(),
         async_handle,
         kbm_emulation_enabled,
     );
@@ -330,6 +371,7 @@ fn run_platform(
     sdl_waker: Arc<Mutex<Option<EventSender>>>,
     winit_waker: Arc<Mutex<Option<EventLoopProxy<RunnerEvent>>>>,
     window_visible: Arc<Mutex<bool>>,
+    ui_visible: Arc<Mutex<bool>>,
     async_handle: Handle,
     kbm_emulation_enabled: Arc<AtomicBool>,
 ) {
@@ -342,6 +384,7 @@ fn run_platform(
         sdl_waker,
         winit_waker,
         window_visible,
+        ui_visible.clone(),
         async_handle,
         kbm_emulation_enabled,
     ));

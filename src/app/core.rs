@@ -92,10 +92,15 @@ impl App {
         let should_create_window = self.cfg.window.create.unwrap_or(true);
         let window_visible = Arc::new(Mutex::new(should_create_window));
 
+        let fullscreen = self.cfg.window.fullscreen.unwrap_or(true);
+        let initial_ui_visible = if fullscreen { false } else { !self.cfg.kbm_emulation.unwrap_or(false) };
+        let ui_visible = Arc::new(Mutex::new(initial_ui_visible));
+
         let tray_handle = if self.cfg.tray.unwrap_or(true) {
             let sdl_waker_for_tray = self.sdl_waker.clone();
             let winit_waker_for_tray = self.winit_waker.clone();
             let window_visible_for_tray = window_visible.clone();
+            let ui_visible_for_tray = ui_visible.clone();
             let handle_for_tray = async_rt.handle().clone();
             let kbm_emulation_enabled_for_tray = kbm_emulation_enabled.clone();
             Some(thread::spawn(move || {
@@ -103,6 +108,7 @@ impl App {
                     sdl_waker_for_tray,
                     winit_waker_for_tray,
                     window_visible_for_tray,
+                    ui_visible_for_tray,
                     handle_for_tray,
                     kbm_emulation_enabled_for_tray,
                 );
@@ -160,6 +166,8 @@ impl App {
             window_ready,
             continuous_redraw,
             kbm_emulation_enabled.clone(),
+            window_visible.clone(),
+            ui_visible.clone(),
         );
 
         let mut exit_code = window_runner.run();

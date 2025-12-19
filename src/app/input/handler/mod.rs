@@ -29,7 +29,6 @@ use crate::app::{
     input::device::{Device, DeviceState, SDLDevice},
     window::RunnerEvent,
 };
-use crate::config::CONFIG;
 
 pub struct EventHandler {
     winit_waker: Arc<Mutex<Option<EventLoopProxy<RunnerEvent>>>>,

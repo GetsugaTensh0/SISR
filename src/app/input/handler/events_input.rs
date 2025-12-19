@@ -83,12 +83,17 @@ impl EventHandler {
                     && gp.button(sdl3::gamepad::Button::Back)
                 {
                     trace!("UI toggle controller chord detected on SDL ID {}", which);
-                    if let Ok(guard) = self.winit_waker.lock()
-                        && let Some(proxy) = guard.as_ref()
-                        && let Err(e) =
-                            proxy.send_event(crate::app::window::RunnerEvent::ToggleUi())
-                    {
-                        warn!("Failed to toggle UI via gamepad chord: {e}");
+                    if let Ok(guard) = self.winit_waker.lock() {
+                        if let Some(proxy) = guard.as_ref() {
+                            match proxy.send_event(crate::app::window::RunnerEvent::ToggleUi()) {
+                                Ok(_) => debug!("Successfully sent ToggleUi event to window"),
+                                Err(e) => error!("Failed to send ToggleUi to window: {e}"),
+                            }
+                        } else {
+                            warn!("Winit proxy not available for gamepad UI toggle");
+                        }
+                    } else {
+                        error!("Failed to lock winit_waker for gamepad UI toggle");
                     }
                 }
             }
