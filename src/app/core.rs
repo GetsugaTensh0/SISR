@@ -40,6 +40,8 @@ pub struct App {
 }
 
 impl App {
+
+
     pub fn new() -> Self {
         Self {
             cfg: CONFIG.read().expect("Failed to read CONFIG").as_ref().cloned().expect("Config not set"),
@@ -275,16 +277,16 @@ impl App {
                         );
                         cef_debug::inject::set_ws_server_port(port);
 
-                        let Ok(sdl_waker) = sdl_waker.lock() else {
-                            error!("Failed to lock SDL waker to notify CEF debug readiness");
-                            return;
-                        };
-                        sdl_waker.as_ref().and_then(|sender| {
-                            trace!("Notifying SDL input handler of CEF debug readiness");
-                            sender
-                                .push_custom_event(HandlerEvent::CefDebugReady { port })
-                                .ok()
-                        });
+                        trace!("Notifying SDL input handler of CEF debug readiness");
+                        if !push_sdl_custom_event_with_retry(
+                            &sdl_waker,
+                            || HandlerEvent::CefDebugReady { port },
+                            "CEF debug readiness",
+                        )
+                        .await
+                        {
+                            warn!("Failed to notify SDL input handler of CEF debug readiness");
+                        }
                     }
                     Err(e) => {
                         error!("Failed to start WebSocket server: {}", e);
@@ -499,15 +501,17 @@ The application will now exit.", ||{
                         }
 
                         info!("VIIPER is ready (version={})", version);
-                         window_ready.notified().await;
-                        if sdl_waker.lock().ok().and_then(|guard| {
-                            guard.as_ref().and_then(|sender| {
-                                trace!("Notifying SDL input handler of VIIPER readiness");
-                                sender
-                                    .push_custom_event(HandlerEvent::ViiperReady { version })
-                                    .ok()
-                            })
-                        }).is_none()
+
+                        window_ready.notified().await;
+                        trace!("Notifying SDL input handler of VIIPER readiness");
+                        if !push_sdl_custom_event_with_retry(
+                            &sdl_waker,
+                            || HandlerEvent::ViiperReady {
+                                version: version.clone(),
+                            },
+                            "VIIPER readiness",
+                        )
+                        .await
                         {
                             warn!("Failed to notify SDL input handler of VIIPER readiness");
                         }
@@ -610,4 +614,31 @@ impl Default for App {
     fn default() -> Self {
         Self::new()
     }
+}
+
+
+async fn push_sdl_custom_event_with_retry<F>(
+    sdl_waker: &Arc<Mutex<Option<EventSender>>>,
+    mut make_event: F,
+    label: &str,
+) -> bool
+where
+    F: FnMut() -> HandlerEvent,
+{
+    // Keep short just bridge startup ordering.
+    for attempt in 0..60u32 {
+        if let Ok(guard) = sdl_waker.lock()
+            && let Some(sender) = guard.as_ref() 
+                && sender.push_custom_event(make_event()).is_ok() {
+                    if attempt > 0 {
+                        trace!("Successfully notified SDL input handler after {} retries: {}", attempt, label);
+                    }
+                    return true;
+                }
+            
+
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    }
+
+    false
 }
