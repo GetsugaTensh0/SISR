@@ -528,6 +528,7 @@ impl ApplicationHandler<RunnerEvent> for WindowRunner {
             }
         }
 
+        self.window_ready.notify_waiters();
         self.window_ready.notify_one();
     }
 

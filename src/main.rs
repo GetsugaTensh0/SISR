@@ -1,5 +1,4 @@
 #![windows_subsystem = "windows"]
-// TODO: don't force this via src file. (do rustflags in CI)
 
 use std::{env, process::ExitCode};
 
@@ -87,6 +86,13 @@ fn main() -> ExitCode {
         }
     }
     trace!("merged config: {:?}", config);
+
+    trace!(
+        viiper_min_version = sisr::viiper_metadata::VIIPER_MIN_VERSION,
+        viiper_allow_dev = sisr::viiper_metadata::VIIPER_ALLOW_DEV,
+        viiper_fetch_prelease = sisr::viiper_metadata::VIIPER_FETCH_PRELEASE,
+        "VIIPER metadata"
+    );
 
     #[cfg(windows)]
     {

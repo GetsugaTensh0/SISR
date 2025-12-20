@@ -1,12 +1,16 @@
 use sdl3::event::EventSender;
 use std::net::ToSocketAddrs;
+use std::path::PathBuf;
+use std::process::{Child, Command};
 use std::process::ExitCode;
 use std::sync::atomic::AtomicBool;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::thread;
 use tokio::sync::Notify;
 use tracing::{debug, error, info, trace, warn};
 use winit::event_loop::EventLoopProxy;
+
+use viiper_client::AsyncViiperClient;
 
 use super::tray;
 use super::window::WindowRunner;
@@ -25,6 +29,8 @@ use crate::app::steam_utils::util::{
 use crate::app::window::RunnerEvent;
 use crate::app::{gui, signals, steam_utils};
 use crate::config::{self, CONFIG};
+
+static SPAWNED_VIIPER: OnceLock<Mutex<Option<Child>>> = OnceLock::new();
 
 pub struct App {
     cfg: config::Config,
@@ -46,6 +52,7 @@ impl App {
     pub fn run(&mut self) -> ExitCode {
         debug!("Running application...");
         debug!("Config: {:?}", self.cfg);
+
 
         let async_rt = tokio::runtime::Builder::new_multi_thread()
             .enable_all()
@@ -152,6 +159,12 @@ impl App {
         }
 
         let window_ready = Arc::new(Notify::new());
+        self.ensure_viiper(
+            async_rt.handle().clone(),
+            self.winit_waker.clone(),
+            self.sdl_waker.clone(),
+            window_ready.clone(),
+        );
         self.steam_stuff(
             async_rt.handle().clone(),
             self.winit_waker.clone(),
@@ -195,6 +208,22 @@ impl App {
         sdl_waker: Option<&Arc<Mutex<Option<EventSender>>>>,
         winit_waker: Option<&Arc<Mutex<Option<EventLoopProxy<RunnerEvent>>>>>,
     ) {
+        if let Some(lock) = SPAWNED_VIIPER.get() {
+            if let Ok(mut guard) = lock.lock()
+                && let Some(mut child) = guard.take()
+            {
+                trace!("Killing spawned VIIPER server");
+                let _ = child.kill().inspect_err(|e|{
+                    error!("Failed to kill spawned VIIPER process: {}", e);
+                });
+                let _ = child.wait().inspect_err(|e| {
+                    error!("Failed to wait for spawned VIIPER process to exit: {}", e);
+                });
+            }
+        } else {
+            debug!("No spawned VIIPER instance to kill");
+        }
+
         if let Some(sdl_waker) = sdl_waker
             && let Ok(guard) = sdl_waker.lock()
             && let Some(sender) = &*guard
@@ -354,6 +383,213 @@ The application will now exit.", ||{
                 ))
             }        });
     }
+
+    fn ensure_viiper(&self,
+        async_handle: tokio::runtime::Handle,
+        winit_waker: Arc<Mutex<Option<EventLoopProxy<RunnerEvent>>>>,
+        sdl_waker: Arc<Mutex<Option<EventSender>>>,
+        window_ready: Arc<Notify>,
+    ) {
+        async_handle.clone().spawn(async move {
+            async fn show_dialog_and_quit(
+                ui_ready: Arc<Notify>,
+                winit_waker: Arc<Mutex<Option<EventLoopProxy<RunnerEvent>>>>,
+                sdl_waker: Arc<Mutex<Option<EventSender>>>,
+                title: &'static str,
+                message: String,
+            ) {
+                ui_ready.notified().await;
+
+                let sdl_waker_for_cb = sdl_waker.clone();
+                let winit_waker_for_cb = winit_waker.clone();
+                let _ = push_dialog(dialogs::Dialog::new_ok(title, message, move || {
+                    App::shutdown(Some(&sdl_waker_for_cb), Some(&winit_waker_for_cb));
+                }))
+                .inspect_err(|e| error!("Failed to push dialog: {}", e));
+            }
+
+            let addr = CONFIG
+                .read()
+                .ok()
+                .and_then(|g| g.as_ref().and_then(|cfg| cfg.viiper_address.clone()))
+                .and_then(|s| s.to_socket_addrs().ok().and_then(|mut a| a.next()))
+                .unwrap_or_else(|| "localhost:3242".to_socket_addrs().unwrap().next().unwrap());
+
+            let retry_schedule = [
+                std::time::Duration::from_secs(1),
+                std::time::Duration::from_secs(2),
+                std::time::Duration::from_secs(4),
+                std::time::Duration::from_secs(8),
+            ];
+
+            let client = AsyncViiperClient::new(addr);
+            let mut spawn_attempted = false;
+
+            for (attempt, delay) in retry_schedule.into_iter().enumerate() {
+                match client.ping().await {
+                    Ok(resp) => {
+                        let is_viiper = resp.server == "VIIPER";
+                        if !is_viiper {
+                            let msg = format!(
+                                "A non-VIIPER server is running at {addr} (server={}).\n\nSISR requires VIIPER to function and will now exit.",
+                                resp.server
+                            );
+                            error!("{}", msg.replace('\n', " | "));
+                            show_dialog_and_quit(
+                                window_ready.clone(),
+                                winit_waker.clone(),
+                                sdl_waker.clone(),
+                                "Invalid VIIPER server",
+                                msg,
+                            )
+                            .await;
+                            return;
+                        }
+                        let version = resp.version.clone();
+
+                        let min = crate::viiper_metadata::VIIPER_MIN_VERSION;
+                        let allow_dev = crate::viiper_metadata::VIIPER_ALLOW_DEV;
+                        let dev_allowed = allow_dev && (version.contains("-g") || version.contains("-dev"));
+                        let semver_ok = (!dev_allowed)
+                            .then(|| {
+                                let sv = {
+                                    let s = version.trim();
+                                    let s = s.strip_prefix('v').unwrap_or(s);
+                                    let prefix = s.split('-').next().unwrap_or(s);
+                                    let mut it = prefix.split('.');
+                                    let major = it.next()?.parse::<u64>().ok()?;
+                                    let minor = it.next().unwrap_or("0").parse::<u64>().ok()?;
+                                    let patch = it.next().unwrap_or("0").parse::<u64>().ok()?;
+                                    Some((major, minor, patch))
+                                }?;
+
+                                let mv = {
+                                    let s = min.trim();
+                                    let s = s.strip_prefix('v').unwrap_or(s);
+                                    let prefix = s.split('-').next().unwrap_or(s);
+                                    let mut it = prefix.split('.');
+                                    let major = it.next()?.parse::<u64>().ok()?;
+                                    let minor = it.next().unwrap_or("0").parse::<u64>().ok()?;
+                                    let patch = it.next().unwrap_or("0").parse::<u64>().ok()?;
+                                    Some((major, minor, patch))
+                                }?;
+
+                                Some(sv >= mv)
+                            })
+                            .flatten()
+                            .unwrap_or(false);
+                        let ok = dev_allowed || semver_ok;
+
+                        if !ok {
+                            let msg = format!(
+                                "VIIPER is too old.\n\nDetected: {version}\nRequired: {}\n\nSISR will now exit.",
+                                crate::viiper_metadata::VIIPER_MIN_VERSION
+                            );
+                            error!("{}", msg.replace('\n', " | "));
+                            show_dialog_and_quit(
+                                window_ready.clone(),
+                                winit_waker,
+                                sdl_waker,
+                                "VIIPER too old",
+                                msg,
+                            )
+                            .await;
+                            return;
+                        }
+
+                        info!("VIIPER is ready (version={})", version);
+                        return;
+                    }
+                    Err(e) => {
+                        warn!("VIIPER ping failed (attempt {}): {}", attempt + 1, e);
+
+                        if addr.ip().is_loopback() && !spawn_attempted {
+                            spawn_attempted = true;
+
+                            let spawn_res: anyhow::Result<()> = (|| {
+                                let lock = SPAWNED_VIIPER.get_or_init(|| Mutex::new(None));
+                                if let Ok(guard) = lock.lock()
+                                    && guard.is_some()
+                                {
+                                    return Ok(());
+                                }
+
+                                let exe_dir = std::env::current_exe()
+                                    .ok()
+                                    .and_then(|p| p.parent().map(|p| p.to_path_buf()))
+                                    .unwrap_or_else(|| PathBuf::from("."));
+                                let viiper_path = exe_dir.join(if cfg!(windows) { "viiper.exe" } else { "viiper" });
+                                if !viiper_path.exists() {
+                                    anyhow::bail!(
+                                        "VIIPER executable not found at {}\nExpected it next to SISR.",
+                                        viiper_path.display()
+                                    );
+                                }
+
+                                let log_path =  directories::ProjectDirs::from("", "", "SISR")
+                                    .map(|proj_dirs| proj_dirs.data_dir().join("VIIPER.log"));
+                                info!("Starting local VIIPER: {}", viiper_path.display());
+                                let mut cmd = Command::new(&viiper_path);
+                                cmd.arg("server");
+                                if let Some(log_path) = &log_path {
+                                    cmd.arg("--log.file")
+                                    .arg(log_path);
+                                }
+                                cmd.stdin(std::process::Stdio::null())
+                                    .stdout(std::process::Stdio::null())
+                                    .stderr(std::process::Stdio::null());
+
+                                let child = cmd.spawn().inspect_err(|e| {
+                                    error!(
+                                        "VIIPER spawn failed: {}",
+                                        e
+                                    );
+                                })?;
+                                info!("Spawned VIIPER pid={}", child.id());
+                                if let Ok(mut guard) = lock.lock() {
+                                    *guard = Some(child);
+                                }
+
+                                Ok(())
+                            })();
+
+                            if let Err(spawn_err) = spawn_res {
+                                let msg = format!(
+                                    "Failed to start VIIPER locally.\n\n{spawn_err}\n\nSISR will now exit."
+                                );
+                                error!("{}", msg.replace('\n', " | "));
+                                show_dialog_and_quit(
+                                    window_ready.clone(),
+                                    winit_waker,
+                                    sdl_waker,
+                                    "Failed to start VIIPER",
+                                    msg,
+                                )
+                                .await;
+                                return;
+                            }
+                        }
+
+                        tokio::time::sleep(delay).await;
+                    }
+                }
+            }
+
+            let msg = format!(
+                "Unable to connect to VIIPER at {addr} after multiple attempts.\n\nSISR will now exit."
+            );
+            error!("{}", msg.replace('\n', " | "));
+            show_dialog_and_quit(
+                window_ready,
+                winit_waker,
+                sdl_waker,
+                "VIIPER unavailable",
+                msg,
+            )
+            .await;
+        });
+    }
+
 }
 
 impl Default for App {

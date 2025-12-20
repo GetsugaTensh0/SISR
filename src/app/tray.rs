@@ -181,7 +181,7 @@ impl TrayContext {
             item.set_checked(self.kbm_emulation_enabled.load(Ordering::Relaxed));
         }
 
-        let (menu_text, is_fullscreen) = if self.fullscreen {
+        let (menu_text, _is_fullscreen) = if self.fullscreen {
             if let Ok(guard) = self.ui_visible.lock() {
                 let ui_vis = *guard;
                 (if ui_vis { "Hide UI" } else { "Show UI" }, true)

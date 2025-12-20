@@ -58,6 +58,14 @@ wayland-client = "0.31"
 
 [build-dependencies]
 winres = "0.1"
+toml = "0.9.8"
+ureq = { version = "3.1.4", features = ["json"] }
+serde_json = "1.0.145"
 
 [lib]
 name = "sisr"
+
+[package.metadata.viiper]
+viiper-version = "0.3.0"
+allow_dev = true
+fetch_prelease = true
