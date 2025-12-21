@@ -13,6 +13,24 @@
 
   **READ AND FOLLOW**: [USBIP Installation](usbip.md)
 
+### ⚙️ VIIPER
+
+=== "Linux"
+
+    Linux requires VIIPER as a system service:
+
+    ```bash
+    curl -fsSL https://alia5.github.io/VIIPER/install.sh | sh
+    ```
+
+    This will install VIIPER, and run it as a systemd service.
+
+    For more details, see the [VIIPER documentation](https://alia5.github.io/VIIPER/).
+
+=== "Windows"
+
+    VIIPER is bundled with SISR. No separate installation required.
+
 ## 🚀 Getting SISR running
 
 Once you have the prerequisites installed, run SISR and follow the dialogs 😉

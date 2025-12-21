@@ -5,6 +5,10 @@ fn main() {
     println!("cargo:rustc-env=CMAKE_GENERATOR=Ninja");
 
     generate_viiper_metadata();
+
+    // On Linux, VIIPER must be used with elevated permissions,
+    // so we do not bundle and tell users to install VIIPER separately
+    #[cfg(not(target_os = "linux"))]
     fetch_viiper_binary();
 
     #[cfg(windows)]

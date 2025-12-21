@@ -23,7 +23,9 @@ Refer to the [USBIP setup guide](../getting-started/usbip.md)
 
 ### VIIPER
 
-VIIPER comes normally bundled with SISR, but for networked scenarios you will have to run VIIPER on the recieving machine yourself.  
+VIIPER comes bundled with SISR on Windows, but on Linux it must always be installed as a system service.
+
+For networked scenarios you will have to run VIIPER on the receiving machine yourself.  
 
 Instead of always interacting with the receiving machine yourself, VIIPER can be run as a background service
 that automatically starts with the system.  

@@ -426,6 +426,8 @@ The application will now exit.", ||{
             ];
 
             let client = AsyncViiperClient::new(addr);
+            
+            #[cfg(not(target_os = "linux"))]
             let mut spawn_attempted = false;
 
             for (attempt, delay) in retry_schedule.into_iter().enumerate() {
@@ -520,6 +522,7 @@ The application will now exit.", ||{
                     Err(e) => {
                         warn!("VIIPER ping failed (attempt {}): {}", attempt + 1, e);
 
+                        #[cfg(not(target_os = "linux"))]
                         if addr.ip().is_loopback() && !spawn_attempted {
                             spawn_attempted = true;
 
@@ -593,9 +596,20 @@ The application will now exit.", ||{
                 }
             }
 
+            #[cfg(target_os = "linux")]
+            let msg = format!(
+                "Unable to connect to VIIPER at {addr} after multiple attempts.\n\n\
+                On Linux, VIIPER must be installed as a system service.\n\
+                See installation instructions at:\n\
+                https://alia5.github.io/SISR/main/getting-started/installation/\n\n\
+                SISR will now exit."
+            );
+            
+            #[cfg(not(target_os = "linux"))]
             let msg = format!(
                 "Unable to connect to VIIPER at {addr} after multiple attempts.\n\nSISR will now exit."
             );
+            
             error!("{}", msg.replace('\n', " | "));
             show_dialog_and_quit(
                 window_ready,
