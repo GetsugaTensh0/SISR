@@ -52,7 +52,7 @@ Does the game work with regular, real, Xbox 360 controllers?
 - **If** the window runs **as overlay** press **`Ctrl+Shift+Alt+S`**
   or **`LB+RB+BACK+A`** (_A button needs to be pressed last_) to toggle UI visibility.
 
-### I have toggled the UI but not I can't get rid of it
+### I have toggled the UI but now I can't get rid of it
 
 - Press **`Ctrl+Shift+Alt+S`** or **`LB+RB+BACK+A`** (_A button needs to be pressed last_) again to toggle UI visibility
 
