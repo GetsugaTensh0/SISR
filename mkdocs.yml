@@ -64,8 +64,10 @@ nav:
     - Configuration: config/config.md
     - CLI Reference: config/cli.md
   - Guides:
-    - TODO1: guides/todo1.md
-    - TODO2: guides/todo2.md
+    - Overview: guides/overview.md
+    - Installation: getting-started/installation.md
+    - Networked usage: guides/networked.md
+    - GlosSI like usage: guides/glossi_like.md  
   - Troubleshooting: misq/troubleshooting.md
   - FAQ: misq/faq.md
   - Development:

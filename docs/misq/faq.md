@@ -9,7 +9,48 @@ SISR runs as a **system tray application** by default.
 - **If** the window runs **as overlay** press **`Ctrl+Shift+Alt+S`**
   or **`LB+RB+BACK+A`** (_A button needs to be pressed last_) to toggle UI visibility.
 
-You can also run `sisr --help` to see all CLI options.
+You can also run `sisr --help` to see all CLI options
+
+## Why would I use this over Steam Input directly?
+
+SISR can be used to circumvent issues with games and applications that
+do not support Steam Input or otherwise pose challenges, like (but not limited to):
+
+- Games with aggressive anti-cheat systems
+- Emulators
+- Windows Store games/apps
+- Games with broken Steam Input support
+
+You can also use SISR to "tunnel"/forward
+Steam Input configurations over the network to other machines, including Keyboard/Mouse.  
+
+This makes it possible to use devices like a Steam Deck as a dedicated controller
+without the need to stream the entire game
+
+## Why would I want to use this instead of _directly_ using USBIP/VirtualHere to forward controllers?
+
+Diretly forwarding the Steam Decks (or similar devices) inputs via USBIP/VirtualHere comes with significant drawbacks:
+
+- The forwarded device is entirely "removed" from the host machine  
+    - You cannot use the device on the host machine at all while it's forwarded
+    - There may be no way to "exit" the forwarding on the host machine without additional input devices or remote access,
+    you have to disconnect the USBIP/VirtualHere session from the client side  
+    This can be especially problematic if the host machine is a Steam Deck...
+- USBIP on Windows specifically does not _currently_ work with the Steam Decks built-in controller
+- VirtualHere is closed-source and requires a paid license for more than a single device
+- I have personally experienced significant latency and input issues
+  when using VirtualHere specifically on long gaming sessions
+- On the Steam Deck (or similar devices), the Touchscreens inputs cannot be forwarded via USBIP/VirtualHere at all
+
+SISR circumvents all of these issues by:
+
+- Forwarding Steams Virtual Controllers instead of the physical device
+- Forward additional Keyboard/Mouse devices alongside the controllers
+- Providing "_an out_" using it's dedicated shortcut/controller chord (**`CTRL+SHIFT+ALT+S`**, **`LB+RB+BACK+A`**)
+  to toggle the UI visibility and stop/start forwarding
+- Being fully open-source and free to use  
+   Even if a feature is not supported, everyone can grab the source-code
+   of any part in the chain (except Steam itself) and implement it 😉
 
 ## What is USBIP?
 
