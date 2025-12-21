@@ -601,7 +601,7 @@ The application will now exit.", ||{
                 "Unable to connect to VIIPER at {addr} after multiple attempts.\n\n\
                 On Linux, VIIPER must be installed as a system service.\n\
                 See installation instructions at:\n\
-                https://alia5.github.io/SISR/main/getting-started/installation/\n\n\
+                https://alia5.github.io/SISR/stable/getting-started/installation/\n\n\
                 SISR will now exit."
             );
             

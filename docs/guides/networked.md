@@ -30,7 +30,7 @@ For networked scenarios you will have to run VIIPER on the receiving machine you
 Instead of always interacting with the receiving machine yourself, VIIPER can be run as a background service
 that automatically starts with the system.  
 
-VIIPER provides [easy to use installation scripts](https://alia5.github.io/VIIPER/main/getting-started/installation/#automated-install-script)
+VIIPER provides [easy to use installation scripts](https://alia5.github.io/VIIPER/stable/getting-started/installation/#automated-install-script)
 for both Windows and Linux.  
 
 === "Windows"
