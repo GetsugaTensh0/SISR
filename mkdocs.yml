@@ -6,7 +6,7 @@ repo_url: https://github.com/Alia5/SISR
 
 theme:
   name: material
-  logo: sisr.svg
+  logo: SISR.svg
   palette: 
     - scheme: default
       primary: blue grey
