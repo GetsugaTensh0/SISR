@@ -11,7 +11,7 @@ use egui_wgpu::Renderer as EguiRenderer;
 use egui_wgpu::ScreenDescriptor;
 use egui_winit::State as EguiWinitState;
 use sdl3::event::EventSender;
-use tracing::{debug, error, trace, warn};
+use tracing::{debug, error, info, trace, warn};
 use winit::application::ApplicationHandler;
 use winit::event::{DeviceEvent, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
@@ -84,12 +84,24 @@ impl WindowRunner {
     ) -> Self {
         let ctx = Context::default();
 
-        if let Some(storage_path) = Self::get_storage_path()
-            && storage_path.exists()
-            && let Ok(contents) = std::fs::read_to_string(&storage_path)
-            && let Ok(memory) = ron::from_str(&contents)
-        {
-            ctx.memory_mut(|mem| *mem = memory);
+        if let Some(storage_path) = Self::get_storage_path() {
+            debug!("egui persistence path: {:?}", storage_path);
+            if storage_path.exists() {
+                match std::fs::read_to_string(&storage_path) {
+                    Ok(contents) => match ron::from_str(&contents) {
+                        Ok(memory) => {
+                            ctx.memory_mut(|mem| *mem = memory);
+                            info!("Successfully loaded egui persistence data");
+                        }
+                        Err(e) => error!("Failed to parse egui persistence file: {}", e),
+                    },
+                    Err(e) => error!("Failed to read egui persistence file: {}", e),
+                }
+            } else {
+                debug!("egui persistence file does not exist yet");
+            }
+        } else {
+            warn!("Could not determine egui persistence path");
         }
 
         let light_style = light_theme::style();
@@ -806,6 +818,7 @@ impl ApplicationHandler<RunnerEvent> for WindowRunner {
         match &event {
             WindowEvent::CloseRequested => {
                 if let Some(storage_path) = Self::get_storage_path() {
+                    debug!("Saving egui persistence to: {:?}", storage_path);
                     if let Some(parent) = storage_path.parent() {
                         _ = std::fs::create_dir_all(parent).inspect_err(|e| {
                             error!("Error creating egui persistance directory: {}", e)
@@ -816,8 +829,13 @@ impl ApplicationHandler<RunnerEvent> for WindowRunner {
                             _ = std::fs::write(&storage_path, serialized).inspect_err(|e| {
                                 error!("Error writing egui persistance file: {}", e)
                             });
+                            info!("Successfully saved egui persistence data");
+                        } else {
+                            error!("Failed to serialize egui memory");
                         }
                     });
+                } else {
+                    warn!("Could not determine egui persistence path for saving");
                 }
                 event_loop.exit();
             }
