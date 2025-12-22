@@ -511,6 +511,9 @@ The application will now exit.", ||{
 
                         window_ready.notified().await;
                         trace!("Notifying SDL input handler of VIIPER readiness");
+                        // TODO: HACK! delay to ensure SDL handler is ready to receive event
+                        // TODO: FIXME: Fix the actual race
+                        tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
                         if !push_sdl_custom_event_with_retry(
                             &sdl_waker,
                             || HandlerEvent::ViiperReady {
@@ -656,7 +659,7 @@ where
                 }
             
 
-        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
     }
 
     false
