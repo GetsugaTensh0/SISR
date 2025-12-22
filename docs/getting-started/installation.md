@@ -2,7 +2,8 @@
 
 !!! warning
     There currently is no one-click installer.
-    You need to manually download/install the prerequisites manually and keep the SISR binary in a **stable path** (don’t move it around after running it for the first time).
+    You need to manually install the prerequisites and keep SISR in a **stable path**
+    (don't move it around after running it for the first time)
 
 ## ✅ Requirements
 
@@ -32,6 +33,27 @@
     VIIPER is bundled with SISR. No separate installation required.
 
 ## 🚀 Getting SISR running
+
+### 📦 Download SISR
+
+=== "Linux"
+
+    Download the AppImage for your architecture from the [Downloads](../downloads/index.md) page:
+    
+    - `SISR-x86_64.AppImage` for 64-bit Intel/AMD systems
+    - `SISR-aarch64.AppImage` for ARM64 systems
+    
+    Make it executable:
+    
+    ```bash
+    chmod +x SISR-x86_64.AppImage
+    ```
+
+=== "Windows"
+
+    Download the zip archive for your architecture from the [Downloads](../downloads/index.md) page and extract it to a permanent location
+
+### 🎮 First Run
 
 Once you have the prerequisites installed, run SISR and follow the dialogs 😉
 
