@@ -210,6 +210,11 @@ impl App {
         sdl_waker: Option<&Arc<Mutex<Option<EventSender>>>>,
         winit_waker: Option<&Arc<Mutex<Option<EventLoopProxy<RunnerEvent>>>>>,
     ) {
+        use crate::app::steam_utils::util::open_steam_url;
+        let _ = open_steam_url("steam://forceinputappid/0").inspect_err(|e| {
+            error!("Failed to reset Steam input binding on shutdown: {}", e);
+        });
+
         if let Some(lock) = SPAWNED_VIIPER.get() {
             if let Ok(mut guard) = lock.lock()
                 && let Some(mut child) = guard.take()
