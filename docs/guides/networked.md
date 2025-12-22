@@ -5,6 +5,14 @@ SISR can be used over the network to forward controllers, Keyboard/Mouse for gam
 This also allows you to use a Steam Deck (or similar devices)
 as dedicated controllers without the need to stream the entire game
 
+!!! note "No direct Deck passthrough"
+    SISR does **not** directly passthrough the Decks built-in controller hardware  
+    (or any direct controller passthrough, for that matter)  
+    Instead, SISR forwards Steams Virtual Controllers created from the Decks inputs
+    as Xbox360 controllers and a dedicated Keyboard/Mouse device.  
+
+    While still not perfect, this approach circumvents many issues present in direct USBIP/VirtualHere passthrough solutions.
+
 An explanation on why this can be preferable over other solutions can be found in the [FAQ](../misq/faq.md#why-would-i-want-to-use-this-instead-of-directly-using-usbipvirtualhere-to-forward-controllers)
 
 ---
