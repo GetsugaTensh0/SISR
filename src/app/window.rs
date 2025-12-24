@@ -491,7 +491,7 @@ impl ApplicationHandler<RunnerEvent> for WindowRunner {
         let mut window_attrs = WindowAttributes::default()
             .with_title("SISR")
             .with_transparent(true)
-            .with_visible(initially_visible)
+            .with_visible(true)
             .with_window_icon(icon.clone());
 
         if self.fullscreen {
@@ -500,7 +500,7 @@ impl ApplicationHandler<RunnerEvent> for WindowRunner {
                 .with_decorations(false);
         } else {
             window_attrs =
-                window_attrs.with_inner_size(winit::dpi::LogicalSize::new(1280.0, 720.0));
+                window_attrs.with_inner_size(winit::dpi::PhysicalSize::new(1280.0, 720.0));
         }
 
         #[cfg(windows)]
@@ -519,10 +519,11 @@ impl ApplicationHandler<RunnerEvent> for WindowRunner {
                 .expect("Failed to create window"),
         );
 
-        window.set_visible(initially_visible);
+        let meh_window = window.clone();
         if self.fullscreen {
             window.set_window_level(WindowLevel::AlwaysOnTop);
         }
+
         trace!("Window created, visible: {}", initially_visible);
         let gfx = pollster::block_on(Gfx::new(window.clone()));
 
@@ -561,6 +562,12 @@ impl ApplicationHandler<RunnerEvent> for WindowRunner {
 
         self.window_ready.notify_waiters();
         self.window_ready.notify_one();
+
+        let window = meh_window.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(100));
+            window.set_visible(initially_visible);
+        });
     }
 
     fn user_event(&mut self, event_loop: &ActiveEventLoop, _event: RunnerEvent) {
