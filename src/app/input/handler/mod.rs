@@ -135,8 +135,15 @@ impl EventHandler {
                 ..Default::default()
             };
 
-            res.viiper.create_device(&keyboard_device);
-            res.viiper.create_device(&mouse_device);
+            if guard.viiper_ready {
+                res.viiper.create_device(&keyboard_device);
+                res.viiper.create_device(&mouse_device);
+            } else {
+                trace!(
+                    "VIIPER not ready; scheduling KB/M devices ({} and {}) for connect on ready",
+                    keyboard_id, mouse_id
+                );
+            }
             guard.devices.insert(keyboard_id, keyboard_device);
             guard.devices.insert(mouse_id, mouse_device);
         }

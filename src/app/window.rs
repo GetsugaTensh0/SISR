@@ -841,7 +841,7 @@ impl ApplicationHandler<RunnerEvent> for WindowRunner {
                 egui_consumed = response.consumed;
             }
             if egui_consumed {
-                trace!("egui consumed the event: {:?}", event);
+                // trace!("egui consumed the event: {:?}", event);
                 return;
             }
         }

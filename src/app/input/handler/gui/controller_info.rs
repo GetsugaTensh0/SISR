@@ -100,20 +100,31 @@ pub fn draw(state: &mut State, sdl_waker: Arc<Mutex<Option<EventSender>>>,  ctx:
                         ui.separator();
 
                         let viiper_connect_ui = |ui: &mut egui::Ui| {
-                                ui.add_enabled_ui(device.steam_handle > 0, |ui|{
-                                    if ui.button(if device.viiper_connected { "Disconnect" } else { "Connect" }).clicked() {
-                                        let device_id = device.id;
-                                        sdl_waker.clone().lock().expect("sdl_loop does not exist").as_ref().map(|waker| {
-                                            waker.push_custom_event(
-                                                if device.viiper_connected {
-                                                    HandlerEvent::DisconnectViiperDevice { device_id }
-                                                } else {
-                                                    HandlerEvent::ConnectViiperDevice { device_id }
-                                                }
-                                            )
+                            let enable = if device.viiper_connected {
+                                true
+                            } else {
+                                device.steam_handle > 0 && state.viiper_ready
+                            };
+                            ui.add_enabled_ui(enable, |ui| {
+                                if ui
+                                    .button(if device.viiper_connected { "Disconnect" } else { "Connect" })
+                                    .clicked()
+                                {
+                                    let device_id = device.id;
+                                    sdl_waker
+                                        .clone()
+                                        .lock()
+                                        .expect("sdl_loop does not exist")
+                                        .as_ref()
+                                        .map(|waker| {
+                                            waker.push_custom_event(if device.viiper_connected {
+                                                HandlerEvent::DisconnectViiperDevice { device_id }
+                                            } else {
+                                                HandlerEvent::ConnectViiperDevice { device_id }
+                                            })
                                         });
-                                    }
-                                });
+                                }
+                            });
                         };
 
                         CollapsingHeader::new(if device.viiper_connected {

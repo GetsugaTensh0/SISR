@@ -100,6 +100,7 @@ impl EventHandler {
         };
 
         if let Some(&(device_id, _)) = self.sdl_id_to_device.get(which) {
+            let viiper_ready = guard.viiper_ready;
             if let Some(existing_device) = guard.devices.get_mut(&device_id) {
                 existing_device.sdl_device_infos.push(sdl_device_info);
                 debug!(
@@ -114,6 +115,7 @@ impl EventHandler {
                     existing_device,
                     steam_handle,
                     *which,
+                    viiper_ready,
                 );
             }
         } else {
@@ -252,6 +254,7 @@ impl EventHandler {
             );
             return;
         };
+        let viiper_ready = guard.viiper_ready;
         sdl_devices
             .iter_mut()
             .filter_map(|dev| match dev {
@@ -283,7 +286,14 @@ impl EventHandler {
                             "Connecting device {} upon steam handle update with steam handle {}",
                             device_id, steam_handle
                         );
-                        self.viiper.create_device(device);
+                        if viiper_ready {
+                            self.viiper.create_device(device);
+                        } else {
+                            trace!(
+                                "VIIPER not ready; scheduling connect for device {} on ready",
+                                device_id
+                            );
+                        }
                     }
                 }
             });
@@ -296,6 +306,7 @@ fn handle_existing_device_connect(
     device: &mut Device,
     steam_handle: u64,
     sdl_id: u32,
+    viiper_ready: bool,
 ) {
     if device.steam_handle == 0 && steam_handle != 0 {
         device.steam_handle = steam_handle;
@@ -316,7 +327,14 @@ fn handle_existing_device_connect(
             "Connecting device {} upon connect with steam handle {}",
             device.id, steam_handle
         );
-        viiper.create_device(device);
+        if viiper_ready {
+            viiper.create_device(device);
+        } else {
+            trace!(
+                "VIIPER not ready; scheduling connect for device {} on ready",
+                device.id
+            );
+        }
     }
 }
 
@@ -354,7 +372,14 @@ fn handle_new_device(
             "Connecting device {} (SDL ID {}) upon connect with steam handle {}",
             device_id, sdl_id, steam_handle
         );
-        viiper.create_device(&device);
+        if guard.viiper_ready {
+            viiper.create_device(&device);
+        } else {
+            trace!(
+                "VIIPER not ready; scheduling connect for device {} on ready",
+                device_id
+            );
+        }
     }
     guard.devices.insert(device_id, device);
 }

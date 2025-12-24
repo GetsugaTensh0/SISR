@@ -1,4 +1,4 @@
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info, trace, warn};
 
 use std::sync::atomic::Ordering;
 
@@ -83,8 +83,14 @@ Toggle UI/capture:\n\
                     viiper_type: "keyboard".to_string(),
                     ..Default::default()
                 };
-
-                self.viiper.create_device(&keyboard_device);
+                if guard.viiper_ready {
+                    self.viiper.create_device(&keyboard_device);
+                } else {
+                    info!(
+                        "VIIPER not ready; scheduling keyboard device {} for connect on ready",
+                        keyboard_id
+                    );
+                }
                 guard.devices.insert(keyboard_id, keyboard_device);
             }
 
@@ -97,8 +103,14 @@ Toggle UI/capture:\n\
                     viiper_type: "mouse".to_string(),
                     ..Default::default()
                 };
-
-                self.viiper.create_device(&mouse_device);
+                if guard.viiper_ready {
+                    self.viiper.create_device(&mouse_device);
+                } else {
+                    info!(
+                        "VIIPER not ready; scheduling mouse device {} for connect on ready",
+                        mouse_id
+                    );
+                }
                 guard.devices.insert(mouse_id, mouse_device);
             }
         } else {
@@ -115,7 +127,14 @@ Toggle UI/capture:\n\
                 .collect();
 
             for id in ids {
-                self.viiper.remove_device(id);
+                if guard.viiper_ready {
+                    self.viiper.remove_device(id);
+                } else {
+                    trace!(
+                        "VIIPER not ready; skip removing KB/M device {} from VIIPER",
+                        id
+                    );
+                }
                 guard.devices.remove(&id);
             }
         }
@@ -145,6 +164,7 @@ Toggle UI/capture:\n\
             );
             return;
         };
+        let viiper_ready = guard.viiper_ready;
         let Some(device) = guard.devices.get_mut(&device_id) else {
             warn!(
                 "Tried to connect VIIPER for unknown device ID {}",
@@ -163,7 +183,14 @@ Toggle UI/capture:\n\
             );
             return;
         }
-        self.viiper.create_device(device);
+        if viiper_ready {
+            self.viiper.create_device(device);
+        } else {
+            info!(
+                "VIIPER not ready; will connect device {} when VIIPER is ready",
+                device_id
+            );
+        }
         self.request_redraw();
     }
 
@@ -175,6 +202,7 @@ Toggle UI/capture:\n\
             );
             return;
         };
+        let viiper_ready = guard.viiper_ready;
         let Some(device) = guard.devices.get_mut(&device_id) else {
             warn!(
                 "Tried to disconnect VIIPER for unknown device ID {}",
@@ -186,7 +214,14 @@ Toggle UI/capture:\n\
             warn!("Device ID {} is not connected to VIIPER", device_id);
             return;
         }
-        self.viiper.remove_device(device_id);
+        if viiper_ready {
+            self.viiper.remove_device(device_id);
+        } else {
+            trace!(
+                "VIIPER not ready; skipping disconnect for device {} (no server connection yet)",
+                device_id
+            );
+        }
     }
 
     pub fn on_cef_debug_ready(&mut self, port: u16) {

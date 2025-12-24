@@ -283,14 +283,15 @@ impl App {
                         cef_debug::inject::set_ws_server_port(port);
 
                         trace!("Notifying SDL input handler of CEF debug readiness");
-                        if !push_sdl_custom_event_with_retry(
-                            &sdl_waker,
-                            || HandlerEvent::CefDebugReady { port },
-                            "CEF debug readiness",
-                        )
-                        .await
-                        {
-                            warn!("Failed to notify SDL input handler of CEF debug readiness");
+
+                        if let Ok(guard) = sdl_waker.lock() && let Some(sender) = &*guard {
+                            if let Err(e) = sender.push_custom_event(HandlerEvent::CefDebugReady {
+                                port
+                            }) {
+                                error!("Failed to notify SDL input handler of CEF debug readiness: {}", e);
+                            }
+                        } else {
+                            error!("SDL waker sender is None, cannot notify of CEF debug readiness");
                         }
                     }
                     Err(e) => {
@@ -511,19 +512,18 @@ The application will now exit.", ||{
 
                         window_ready.notified().await;
                         trace!("Notifying SDL input handler of VIIPER readiness");
-                        // TODO: HACK! delay to ensure SDL handler is ready to receive event
-                        // TODO: FIXME: Fix the actual race
-                        tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
-                        if !push_sdl_custom_event_with_retry(
-                            &sdl_waker,
-                            || HandlerEvent::ViiperReady {
+                        let Ok(guard) = sdl_waker.lock() else {
+                            error!("Sdl waker could not be locked to notify for VIIPER readiness");
+                            return;
+                        };
+                        if let Some(sender) = &*guard {
+                            if let Err(e) = sender.push_custom_event(HandlerEvent::ViiperReady {
                                 version: version.clone(),
-                            },
-                            "VIIPER readiness",
-                        )
-                        .await
-                        {
-                            warn!("Failed to notify SDL input handler of VIIPER readiness");
+                            }) {
+                                error!("Failed to notify SDL input handler of VIIPER readiness: {}", e);
+                            }
+                        } else {
+                            error!("SDL waker sender is None, cannot notify of VIIPER readiness");
                         }
                         return;
                     }
@@ -636,31 +636,4 @@ impl Default for App {
     fn default() -> Self {
         Self::new()
     }
-}
-
-
-async fn push_sdl_custom_event_with_retry<F>(
-    sdl_waker: &Arc<Mutex<Option<EventSender>>>,
-    mut make_event: F,
-    label: &str,
-) -> bool
-where
-    F: FnMut() -> HandlerEvent,
-{
-    // Keep short just bridge startup ordering.
-    for attempt in 0..60u32 {
-        if let Ok(guard) = sdl_waker.lock()
-            && let Some(sender) = guard.as_ref() 
-                && sender.push_custom_event(make_event()).is_ok() {
-                    if attempt > 0 {
-                        trace!("Successfully notified SDL input handler after {} retries: {}", attempt, label);
-                    }
-                    return true;
-                }
-            
-
-        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-    }
-
-    false
 }
