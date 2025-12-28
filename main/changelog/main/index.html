@@ -1142,6 +1142,12 @@
 </ul>
 <h3 id="fixes">🐛 Fixes</h3>
 <ul>
+<li>Fix (UI) SISR API port displaying wrong value</li>
+<li>Improve success of steam overlay open when <code>--wcd true</code> <strong>not</strong> passed</li>
+<li>Fix (#5) controller having wrong config when Steam overlay is open
+      Note that it can sometimes take a few seconds for the controller to become responsive in the overlay
+      <strong>This is a Steam issue</strong> and not a SISR issue</li>
+<li>fix steamdeck ui scaling</li>
 <li>Fix crash on keyboard-input in Steam Gaming mode</li>
 <li>Fix overlay callback in GamingMode (SteamDeck)</li>
 <li>HACK: FIXME: Workaround steam overlay "tab" not spawning</li>
@@ -1152,6 +1158,9 @@
 </ul>
 <h3 id="miscellaneous">🔧 Miscellaneous</h3>
 <ul>
+<li>Refactor EventHandling
+      In Prepartion for controller emulation other than xbox360
+      Expect new bugs <strong>or fixes</strong> not otherwise noted.</li>
 <li>Linux: increase gameoverlayrenderer loading reliability</li>
 </ul>
 
