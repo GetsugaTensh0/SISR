@@ -348,6 +348,25 @@
   
   
   
+    <li class="md-tabs__item">
+      <a href="../../misc/support/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Community & Support
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
     
     
       <li class="md-tabs__item">
@@ -809,6 +828,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#-viiper-password-password-vp-password" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        --viiper-password &lt;password&gt;, --vp &lt;password&gt;
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#-keyboard-mouse-emulation-truefalse-kbm-truefalse" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -852,6 +882,17 @@
     <span class="md-ellipsis">
       
         --require-controllers-connected-before-launch [true|false]
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#-gyro-passthrough-truefalse" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        --gyro-passthrough [true|false]
       
     </span>
   </a>
@@ -1256,6 +1297,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/ds4_emulation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DualShock4 Emulation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -1323,6 +1392,33 @@
   
   
   
+    <li class="md-nav__item">
+      <a href="../../misc/support/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Community & Support
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
     
     
     
@@ -1339,10 +1435,10 @@
         
           
         
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_7" >
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8" >
         
           
-          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
             
   
   
@@ -1360,8 +1456,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_7">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -1555,6 +1651,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#-viiper-password-password-vp-password" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        --viiper-password &lt;password&gt;, --vp &lt;password&gt;
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#-keyboard-mouse-emulation-truefalse-kbm-truefalse" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1598,6 +1705,17 @@
     <span class="md-ellipsis">
       
         --require-controllers-connected-before-launch [true|false]
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#-gyro-passthrough-truefalse" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        --gyro-passthrough [true|false]
       
     </span>
   </a>
@@ -1834,6 +1952,19 @@
 <li>Default: <code>localhost:3242</code></li>
 <li>Env var: <code>SISR_VIIPER_ADDRESS</code></li>
 </ul>
+<h4 id="-viiper-password-password-vp-password"><code>--viiper-password &lt;password&gt;</code>, <code>--vp &lt;password&gt;</code></h4>
+<p>VIIPER API-server password. Required for non-localhost connections</p>
+<p>Password can be found on the machine running VIIPER in:</p>
+<ul>
+<li>Windows: <code>%APPDATA%\VIIPER\viiper.key.txt</code></li>
+<li>Linux (user): <code>~/.config/github.com/Alia5/viiper/viiper.key.txt</code></li>
+<li>
+<p>Linux (root/systemd): <code>/etc/viiper/viiper.key.txt</code></p>
+</li>
+<li>
+<p>Env var: <code>SISR_VIIPER_PASSWORD</code></p>
+</li>
+</ul>
 <h4 id="-keyboard-mouse-emulation-truefalse-kbm-truefalse"><code>--keyboard-mouse-emulation [true|false]</code>, <code>--kbm [true|false]</code></h4>
 <p>Emulate/forward keyboard and mouse inputs</p>
 <ul>
@@ -1858,6 +1989,12 @@ If VIIPER-address resolves to localhost, this option is ignored</p>
 <ul>
 <li>Default: <code>true</code></li>
 <li>Env var: <code>SISR_REQUIRE_CONTROLLERS_CONNECTED_BEFORE_LAUNCH</code></li>
+</ul>
+<h4 id="-gyro-passthrough-truefalse"><code>--gyro-passthrough [true|false]</code></h4>
+<p>Enable gyro passthrough for supported controllers</p>
+<ul>
+<li>Default: <code>true</code></li>
+<li>Env var: <code>SISR_GYRO_PASSTHROUGH</code></li>
 </ul>
 <h3 id="window">Window</h3>
 <h4 id="-w-window-create-truefalse"><code>-w</code>, <code>--window-create [true|false]</code></h4>
